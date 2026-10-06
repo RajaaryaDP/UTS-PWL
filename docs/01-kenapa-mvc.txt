@@ -1,0 +1,120 @@
+================================================================
+BAGIAN 1 : KENAPA BUTUH MVC?
+(sebelum lihat kode MVC sama sekali)
+================================================================
+
+TUJUAN SESI INI
+----------------
+Mahasiswa BELUM boleh lihat folder controllers/models/views dulu.
+Tujuan sesi ini cuma satu: bikin mereka MERASAKAN sendiri masalah
+dari cara CRUD yang biasa mereka bikin. Kalau mereka belum ngerasa
+ada masalah, MVC bakal keliatan cuma "ribet doang tanpa alasan".
+
+Jangan ceramah dulu di awal. Mulai dari kode yang mereka udah biasa
+bikin sendiri.
+
+
+CONTOH KODE "CRUD BIASA" (buat ditulis/ditunjukin di kelas)
+-------------------------------------------------------------
+Ini pola yang biasanya mahasiswa bikin: 1 file PHP = 1 halaman,
+HTML + SQL + PHP nyampur semua.
+
+products.php (halaman list + tombol delete):
+
+    <?php
+    $conn = new mysqli('localhost', 'root', '', 'toko');
+    $result = $conn->query("SELECT * FROM products");
+    ?>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <link href="bootstrap.css" rel="stylesheet">
+    </head>
+    <body>
+    <nav class="navbar navbar-dark bg-dark">
+        <a class="navbar-brand" href="products.php">Toko Saya</a>
+    </nav>
+    <div class="container">
+        <h2>Daftar Produk</h2>
+        <table class="table">
+        <?php while ($row = $result->fetch_assoc()): ?>
+            <tr>
+                <td><?= $row['name'] ?></td>
+                <td><?= $row['price'] ?></td>
+                <td><a href="delete.php?id=<?= $row['id'] ?>">Hapus</a></td>
+            </tr>
+        <?php endwhile; ?>
+        </table>
+    </div>
+    </body>
+    </html>
+
+create.php (form tambah produk) juga punya <nav>, <head>, bootstrap
+link yang SAMA PERSIS kayak di atas, cuma beda isi <div class="container">.
+
+edit.php juga sama lagi. delete.php juga bikin koneksi $conn sendiri
+lagi dari nol.
+
+
+PERTANYAAN PEMANTIK (tanya ke mahasiswa, biarkan mereka jawab dulu)
+---------------------------------------------------------------------
+1. Coba lihat products.php, create.php, edit.php punya kalian sendiri
+   di tugas kemarin. Bagian mana yang KETIK ULANG di semua file itu?
+
+2. Kalau dosen minta "tolong ganti warna navbar jadi biru", kalian
+   harus buka berapa file? Edit satu-satu?
+
+3. Kalau ternyata ada bug di query koneksi database, dan kalian COPY-PASTE
+   kode koneksi itu ke 5 file berbeda (list, create, edit, delete,
+   search) -- terus salah satunya typo dikit -- gimana cara nyari
+   yang mana yang typo?
+
+4. Di file products.php di atas, coba tunjuk: mana bagian yang
+   "ngambil data dari database", mana yang "nentuin apa yang
+   terjadi kalau delete diklik", mana yang "nampilin ke HTML"?
+   (Kemungkinan besar mereka bakal susah misahin -- karena emang
+   nyampur jadi satu.)
+
+
+RANGKUMAN MASALAH (baru dikasih tau SETELAH diskusi di atas)
+----------------------------------------------------------------
+- DUPLIKASI: <head>, <nav>, koneksi database -- ditulis ulang di
+  SETIAP file. Ganti 1 hal = harus ubah di banyak tempat.
+
+- SUSAH DIBACA: kode nyampur antara "ambil data" (SQL), "logika"
+  (PHP if/else), dan "tampilan" (HTML) dalam satu file yang sama.
+  Susah nebak "kalau saya edit baris ini, yang kepengaruh bagian
+  tampilan atau bagian data?"
+
+- SUSAH DITES / DI-DEBUG: kalau ada bug soal DATA yang salah,
+  kalian harus baca ulang seluruh file HTML-nya juga buat nemuin
+  baris SQL-nya, karena nggak ada pemisahan yang jelas.
+
+- SUSAH DIKEMBANGKAN: makin banyak halaman (products, categories,
+  users, orders, ...), makin banyak file yang punya struktur
+  copy-paste yang sama. Nggak ada "satu tempat" buat naruh hal
+  yang dipakai bersama.
+
+
+JEMBATAN KE SESI BERIKUTNYA (jangan dijelasin detail dulu, cukup
+disebut sebagai preview)
+-------------------------------------------------------------------
+"Nah, dari 4 masalah di atas, sebenernya semuanya muncul karena
+1 alasan: kita nyampur 3 hal yang beda urusan jadi satu file.
+
+Bayangin di restoran: yang masak (dapur), yang nyajiin ke meja
+(pelayan), dan menu/piring yang disajiin -- itu 3 hal yang beda,
+dikerjain sama orang/bagian yang beda juga. Nggak mungkin kan
+juru masak juga yang nyajiin ke meja sambil masak bareng-bareng?
+
+Itu ide dasar dari MVC. Minggu depan kita bedah konsepnya."
+
+
+CATATAN BUAT PENGAJAR
+------------------------
+- Estimasi waktu: 20-30 menit, format diskusi (bukan ceramah).
+- Kunci sesi ini: mahasiswa harus NEMUIN masalahnya sendiri lewat
+  pertanyaan di atas, bukan dikasih tau langsung. Kalau langsung
+  dikasih tau "MVC itu bagus karena X, Y, Z", biasanya nggak nempel.
+- Jangan buka folder controllers/models/views proyek contoh di
+  sesi ini. Itu buat sesi berikutnya (Bagian 2: konsep MVC).

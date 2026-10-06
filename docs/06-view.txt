@@ -1,0 +1,183 @@
+================================================================
+BAGIAN 6 : VIEW
+(lanjutan dari Bagian 5 -- mahasiswa udah ngerti data dari Model
+nyampe ke Controller sebagai array PHP)
+================================================================
+
+TUJUAN SESI INI
+----------------
+Sesi terakhir dari 3 lapis MVC. Fokusnya: gimana data (array PHP)
+itu jadi HTML, dan 1 aturan keamanan yang WAJIB dipahami sebelum
+mahasiswa bikin form/tampilan sendiri.
+
+
+KONSEP: VIEW = PENYAJI, BUKAN PENGAMBIL KEPUTUSAN
+------------------------------------------------------
+View itu "cara penyajian" di analogi restoran Bagian 2 -- piring
+& garnish-nya doang. Aturan:
+  - View TIDAK PERNAH query database langsung
+  - View TIDAK PERNAH nentuin logic bisnis (misal "kalau harga di
+    atas 100rb kasih badge PREMIUM" -- itu HARUSNYA dihitung di
+    Controller, View cuma nampilin hasilnya)
+  - View cuma nerima variabel yang UDAH DISIAPIN Controller
+    ($products, $isEdit, $errors, dst), terus nampilinnya jadi HTML
+
+Kalau nemu variabel di View yang "nggak jelas dari mana asalnya",
+itu artinya harus dicek balik ke Controller-nya -- di situ yang
+nyiapin variabel itu sebelum require view.
+
+
+LAYOUT BERSAMA: header.php & footer.php
+--------------------------------------------
+Inget masalah di Bagian 1: dulu tiap halaman punya <head>, <nav>
+sendiri-sendiri, copas berkali-kali. Sekarang:
+
+    <?php require_once __DIR__ . '/../layout/header.php'; ?>
+
+    ... isi halaman ...
+
+    <?php require_once __DIR__ . '/../layout/footer.php'; ?>
+
+header.php isinya <html><head>...<nav>... (semua yang SAMA di
+setiap halaman), footer.php isinya penutup </body></html>. Tiap
+view (index.php, form.php) tinggal "jepit" isinya di antara 2 file
+itu. Ganti 1 hal di navbar (misal nambah menu baru) = cukup edit
+header.php SEKALI, otomatis kepake di SEMUA halaman.
+
+
+$title -- CARA NGASIH TAU JUDUL HALAMAN KE header.php
+-----------------------------------------------------------
+    <title><?= $title ?? 'Aplikasi klean' ?></title>
+
+header.php make variabel $title, tapi nggak semua view nyetel
+$title (banyak yang ngandelin default 'Aplikasi klean' lewat "??").
+Kalau mau kasih judul custom, tinggal set $title SEBELUM require
+header.php.
+
+
+PALING PENTING: htmlspecialchars() -- KENAPA WAJIB?
+---------------------------------------------------------
+Coba perhatiin, HAMPIR SETIAP kali nampilin data dari database,
+selalu dibungkus htmlspecialchars():
+
+    <?= htmlspecialchars($product['name']) ?>
+
+Kenapa nggak langsung <?= $product['name'] ?> aja?
+
+DEMO KE MAHASISWA: coba bikin produk baru, nama-nya diisi:
+    <script>alert('kena deh')</script>
+
+Kalau TANPA htmlspecialchars(), browser bakal BENERAN NGANGGEP itu
+kode HTML/JavaScript asli, terus dieksekusi -- muncul popup alert.
+Ini namanya XSS (Cross-Site Scripting) -- orang jahat bisa nyisipin
+script buat nyuri cookie/session orang lain, ganti tampilan
+halaman, dst, CUMA dengan ngisi form biasa.
+
+htmlspecialchars() ngubah karakter berbahaya (<, >, ", ') jadi versi
+"aman" (&lt;, &gt;, dst) yang ditampilin APA ADANYA sebagai teks,
+BUKAN dieksekusi sebagai kode. Ini yang bikin isian nama produk
+tadi cuma keliatan sebagai teks "<script>alert('kena deh')</script>"
+di layar, bukan beneran jalan.
+
+ATURAN: setiap nampilin data yang ASALNYA DARI USER (nama, deskripsi,
+apapun yang diinput lewat form), WAJIB dibungkus htmlspecialchars().
+
+
+POLA REUSE: 1 FORM BUAT CREATE & EDIT SEKALIGUS
+-----------------------------------------------------
+Buka views/products/form.php -- perhatiin, file ini dipake buat
+DUA situasi: bikin produk baru (create) DAN edit produk lama (edit).
+Gimana caranya 1 file bisa 2 fungsi?
+
+    $values = $product ?? [];
+    ...
+    <input ... value="<?= htmlspecialchars($values['name'] ?? '') ?>">
+    ...
+    <form action="<?= $isEdit ? BASE_URL.'/products/'.$id.'/update' : BASE_URL.'/products/store' ?>" method="POST">
+    ...
+    <button ...><?= $isEdit ? 'Update' : 'Save' ?></button>
+
+Kuncinya variabel $isEdit (disetel dari Controller, lihat Bagian
+4). Kalau $isEdit true (mode edit): form action-nya ke "update",
+tombolnya "Update", value input-nya dari data lama ($product dari
+database). Kalau $isEdit false (mode create): form action-nya ke
+"store", tombolnya "Save", value input-nya kosong.
+
+Keuntungan: kalau mau ganti tampilan form (misal nambah field baru),
+CUKUP EDIT 1 FILE, otomatis kepake buat create maupun edit. Coba
+bandingin kalau bikin file terpisah (create.php & edit.php) --
+dulu emang gitu, kenapa digabung? (Jawab: karena isinya 90% sama
+persis, cuma beda dikit di judul/tombol/action -- dipisah bikin
+harus edit 2 tempat tiap ada perubahan.)
+
+
+PESAN ERROR PER-FIELD
+--------------------------
+    <input ... class="form-control <?= isset($errors['name']) ? 'is-invalid' : '' ?>">
+    <?php if (isset($errors['name'])): ?>
+        <div class="invalid-feedback"><?= $errors['name'] ?></div>
+    <?php endif; ?>
+
+$errors itu array asosiatif dari Controller (hasil validate()),
+key-nya nama field ('name', 'price', dst). View cuma ngecek "ada
+error buat field ini apa nggak", nampilin border merah (class
+Bootstrap 'is-invalid') + pesannya kalau ada. View nggak nentuin
+APA yang jadi error -- itu udah diputusin di Controller (Bagian 4).
+
+
+CATATAN: KENAPA HEADER.PHP ADA "global $page;"?
+-----------------------------------------------------
+    <?php global $page; ?>
+
+Ini teknis dikit tapi worth disebut: karena sekarang view di-
+require dari DALAM method Controller (bukan langsung dari
+index.php kayak dulu), variabel $page yang di-set di index.php
+nggak otomatis "keliatan" di header.php kecuali dipanggil pakai
+global. Sama persis kayak 'global $conn;' di Model (Bagian 5) --
+pola yang sama, kepake lagi di sini.
+
+
+LATIHAN (tanya ke mahasiswa)
+---------------------------------
+1. Coba isi form Create Product, nama-nya diisi HTML/script kayak
+   demo di atas. Cek: muncul beneran sebagai alert, atau cuma
+   keliatan sebagai teks? Kenapa?
+
+2. Buka views/categories/form.php -- ini juga pake pola $isEdit
+   yang sama. Coba jelasin ke temen sebelah, tanpa liat kode,
+   gimana 1 file ini bisa dipake buat create DAN edit.
+
+3. Andaikan mahasiswa LUPA bungkus htmlspecialchars() di 1 tempat
+   doang (misal di kolom description) -- apa akibatnya? Coba
+   praktekin & liat sendiri.
+
+
+RANGKUMAN
+------------
+- View cuma nampilin variabel yang disiapin Controller, nggak
+  query DB, nggak nentuin logic
+- header.php/footer.php = layout yang di-reuse di semua halaman
+- htmlspecialchars() WAJIB buat data dari user -- nyegah XSS
+- 1 form.php dipake buat create & edit, dibedain lewat $isEdit
+- $errors dari Controller nentuin field mana yang ditandain merah
+
+
+JEMBATAN KE SESI BERIKUTNYA
+-------------------------------
+"Sekarang udah kelar semua bagian MVC-nya satu-satu: Controller,
+Model, View. Bagian 7 kita GABUNGIN semuanya -- trace 1 alur penuh
+dari user klik tombol sampai balik lagi ke halaman list, biar
+kebayang gimana ke-4 bagian ini (index.php, Controller, Model,
+View) kerja bareng-bareng dalam 1 request."
+
+
+CATATAN BUAT PENGAJAR
+------------------------
+- Estimasi waktu: 30-40 menit.
+- Demo XSS itu WAJIB dipraktekin langsung, sama pentingnya kayak
+  demo SQL Injection di Bagian 5. 2 demo ini yang paling nempel di
+  ingetan mahasiswa soal "kenapa aturan ini penting", bukan cuma
+  dihapal.
+- Abis demo XSS, INGET buat hapus data produk yang isinya script
+  tadi dari database (via UI biasa, atau langsung DELETE FROM
+  products), biar nggak ganggu demo-demo berikutnya.

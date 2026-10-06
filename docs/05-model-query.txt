@@ -1,0 +1,194 @@
+================================================================
+BAGIAN 5 : MODEL & QUERY
+(lanjutan dari Bagian 4 -- mahasiswa udah ngerti Controller manggil
+$this->model->sesuatu(), sekarang bedah APA yang ada di dalemnya)
+================================================================
+
+TUJUAN SESI INI
+----------------
+Ini sesi yang paling deket sama yang mahasiswa udah bisa dari
+matkul basis data (SELECT/INSERT/UPDATE/DELETE) -- bedanya di sini
+query itu ditulis DI DALAM PHP, dan HARUS aman dari SQL Injection.
+
+
+KONSEP: MODEL = SATU-SATUNYA YANG BOLEH "NGOMONG" KE DATABASE
+-------------------------------------------------------------------
+Aturan keras: CUMA Model yang boleh nulis query SQL. Controller
+nggak boleh, View apalagi. Kalau suatu saat nemu kode SQL di luar
+folder models/, itu tandanya arsitekturnya udah nggak rapi lagi.
+
+Kenapa aturan ini penting? Karena kalau suatu saat ganti dari MySQL
+ke database lain, atau ganti cara connect-nya, yang perlu diubah
+CUMA di models/ -- Controller & View nggak perlu disentuh sama
+sekali (mereka nggak tau/nggak peduli itu MySQL atau bukan).
+
+
+KONEKSI: PDO (buka config/database.php)
+--------------------------------------------
+    $conn = new PDO("mysql:host={$host};dbname={$db_name};charset=utf8mb4", $user, $pass);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+PDO = PHP Data Objects, cara standar PHP buat connect ke database
+(bisa MySQL, PostgreSQL, SQLite, dll -- tinggal ganti "mysql:" di
+depan). ATTR_ERRMODE => ERRMODE_EXCEPTION artinya: kalau ada query
+yang gagal (typo tabel, dst), PDO bakal "teriak" (throw exception)
+bukannya diem-diem gagal. Ini penting buat debugging -- coba
+bandingin ke Bagian 8 soal error handler.
+
+$conn ini dibuat SEKALI doang di config/database.php, terus dipake
+bareng-bareng sama semua Model lewat:
+
+    public function __construct()
+    {
+        global $conn;
+        $this->db = $conn;
+    }
+
+'global $conn;' itu cara PHP bilang "pinjem variabel $conn yang
+dibikin di index.php tadi, jangan bikin baru." Tanpa ini, $conn di
+dalam constructor bakal dianggap variabel kosong yang beda.
+
+
+PALING PENTING: PREPARED STATEMENT (KENAPA PAKAI "?")
+-----------------------------------------------------------
+Ini bagian paling krusial di sesi ini. Buka models/ProductModel.php:
+
+    public function getById($id)
+    {
+        $stmt = $this->db->prepare("SELECT * FROM products WHERE id = ?");
+        $stmt->execute([$id]);
+        ...
+    }
+
+Kenapa nggak nulis langsung:
+    $this->db->query("SELECT * FROM products WHERE id = '$id'");
+
+DEMO KE MAHASISWA (WAJIB dipraktekin, bukan cuma diomongin):
+  Kalau pake cara ke-2 (concat string langsung), terus ada orang
+  jahat masukin $id = "1' OR '1'='1", query yang KEBENTUK jadi:
+
+    SELECT * FROM products WHERE id = '1' OR '1'='1'
+
+  Kondisi '1'='1' itu SELALU TRUE, jadi query ini bakal ngebalikin
+  SEMUA data, bukan cuma 1 produk. Ini namanya SQL INJECTION --
+  celah keamanan paling klasik di web development.
+
+  Kalau pake prepared statement (tanda "?"), apapun yang diisi ke
+  $id itu DIPERLAKUKAN SEBAGAI DATA MURNI, bukan bagian dari
+  perintah SQL -- walaupun isinya "1' OR '1'='1", itu tetep dicari
+  APA ADANYA sebagai nilai id (dan nggak bakal ketemu, karena emang
+  bukan id yang valid). Prepared statement itu yang bikin aplikasi
+  kita aman dari serangan ini, TANPA kita perlu nulis kode filter
+  manual sendiri.
+
+Aturan: SETIAP kali ada data dari luar (dari $_POST, $_GET, $id
+dari URL) yang masuk ke query, WAJIB pake "?" + execute([...]),
+JANGAN PERNAH digabung langsung ke string SQL.
+
+
+fetch() VS fetchAll()
+--------------------------
+  fetchAll()  -> buat query yang HASILNYA BISA BANYAK BARIS
+                 (contoh: getAll(), balikin array of array)
+  fetch()     -> buat query yang HASILNYA CUMA 1 BARIS
+                 (contoh: getById(), balikin 1 array assosiatif,
+                 atau `false` kalau nggak ketemu)
+
+Coba tanya mahasiswa: di getById(), kenapa ada baris
+    return $product === false ? null : $product;
+bukannya langsung `return $product;`? (Jawab: fetch() itu balikin
+`false` -- bukan `null` -- kalau nggak nemu barisnya. Model sengaja
+"nerjemahin" false jadi null, biar Controller cukup ngecek
+`=== null` di semua tempat, konsisten, nggak perlu inget-inget
+"oh buat model ini false, model itu null".)
+
+
+5 METHOD DASAR (pola query CRUD)
+--------------------------------------
+    getAll()    -> SELECT * FROM tabel [WHERE ... jika ada search]
+    getById($id)-> SELECT * FROM tabel WHERE id = ?
+    create($data)-> INSERT INTO tabel (...) VALUES (?, ?, ...)
+    update($id,$data)-> UPDATE tabel SET ... WHERE id = ?
+    delete($id) -> DELETE FROM tabel WHERE id = ?
+
+Ini pola yang HAMPIR SELALU sama buat resource apapun -- coba
+bandingin ProductModel, DictionaryModel, sama CategoryModel,
+strukturnya identik, cuma beda nama tabel & kolom.
+
+
+BONUS: KENAPA ID-NYA UUID, BUKAN ANGKA 1, 2, 3, ...?
+---------------------------------------------------------
+    public function create($data)
+    {
+        $id = Uuid::uuid4()->toString();
+        // id-nya dibuat DI PHP, bukan di database
+        ...
+    }
+
+Beda sama cara lama (AUTO_INCREMENT di database), di sini id-nya
+STRING PANJANG ACAK (contoh: "3072c9f6-073f-43f1-9db2-c5943f6419aa"),
+dibuat sama library Ramsey\Uuid, SEBELUM data-nya di-insert.
+
+Alesannya: dengan angka 1,2,3,..., orang bisa NEBAK id data lain
+cuma dengan ganti angka di URL (/products/5, /products/6, dst --
+ini disebut "enumerable ID", rawan disalahgunain buat nyoba-nyoba
+akses data orang lain). Dengan UUID, nggak mungkin ditebak.
+
+Efek sampingnya: karena id-nya dibuat di PHP (bukan auto dari
+database), method create() WAJIB balikin $id itu manual, dan kolom
+id di tabel harus VARCHAR/CHAR(36), bukan INT AUTO_INCREMENT.
+
+
+LATIHAN (tanya ke mahasiswa)
+---------------------------------
+1. Coba tulis sendiri (di kertas/papan dulu, belum di komputer):
+   method getByName($name) yang nyari SATU produk berdasarkan nama
+   persis (bukan LIKE). Query-nya gimana? Pake fetch() atau
+   fetchAll()?
+
+2. Kalau di method update(), tanda "?" ada 4 biji tapi cuma ada 3
+   elemen di $data (name, price, description) -- kenapa masih
+   pas? (Jawab: yang ke-4 itu $id, ditaro di ujung array
+   $stmt->execute([...]), urutannya harus PERSIS sama urutan "?"
+   di query.)
+
+3. Coba bikin percobaan (di lokal, aman): apa yang kejadian kalau
+   query getById() ditulis tanpa prepared statement, terus dicoba
+   akses /products/1' OR '1'='1 lewat URL? (Guru: ini exercise yang
+   AMAN dicoba di lokal buat nunjukin bedanya, tapi pastiin
+   diinget-inget buat DIHAPUS lagi abis demo, jangan kebawa ke kode
+   beneran.)
+
+
+RANGKUMAN
+------------
+- Model = satu-satunya bagian yang boleh nulis SQL
+- SELALU pake prepared statement ("?" + execute([...])) buat data
+  dari luar -- ini yang nyegah SQL Injection
+- fetchAll() buat banyak baris, fetch() buat 1 baris (dan bisa
+  balikin false kalau kosong -- biasanya di-translate ke null)
+- Pola CRUD (getAll, getById, create, update, delete) itu konsisten
+  di semua Model
+- Id dibuat pakai UUID (bukan auto-increment) biar nggak bisa
+  ditebak-tebak
+
+
+JEMBATAN KE SESI BERIKUTNYA
+-------------------------------
+"Data dari Model udah nyampe ke Controller (sebagai array/objek
+PHP). Terus gimana caranya data itu jadi tampilan HTML yang rapi
+di browser? Itu Bagian 6: View."
+
+
+CATATAN BUAT PENGAJAR
+------------------------
+- Estimasi waktu: 40-50 menit -- demo SQL Injection itu WAJIB,
+  jangan diskip, ini yang paling nempel di ingetan mahasiswa.
+- Demo SQL Injection: siapin 1 file kecil terpisah (BUKAN di kode
+  utama) yang sengaja pake string concat, buat nunjukin bedanya
+  secara langsung, baru dihapus lagi setelah demo.
+- Kalau ada yang nanya "kenapa nggak pake ORM kayak Eloquent
+  (Laravel)?" -- jawab: ORM itu ngebungkus persis pola yang lagi
+  kita pelajarin ini (prepared statement + method per operasi),
+  tujuannya di sini biar mahasiswa ngerti APA yang dikerjain ORM
+  di baliknya, sebelum nanti kepake ORM yang "ngerjain otomatis."

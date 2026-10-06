@@ -1,0 +1,202 @@
+================================================================
+BAGIAN 3 : FRONT CONTROLLER & ROUTING
+(lanjutan dari Bagian 2 -- mahasiswa udah ngerti M/V/C itu apa)
+================================================================
+
+TUJUAN SESI INI
+----------------
+Di Bagian 2, ada 1 pertanyaan yang sengaja digantung: "kok cuma
+index.php doang yang jadi pintu masuk buat semua halaman?" Sesi
+ini jawabannya. Konsepnya namanya FRONT CONTROLLER.
+
+Di akhir sesi ini, mahasiswa harus bisa NELUSURIN sendiri: dikasih
+1 URL, mereka bisa nebak persis controller mana yang kepanggil,
+method mana, dan kenapa.
+
+
+KONSEP: RESEPSIONIS KANTOR
+------------------------------
+Bayangin kantor gede yang punya banyak departemen: HR, Finance,
+IT Support, dst. Ada 2 cara ngatur tamu yang dateng:
+
+  CARA LAMA (tanpa resepsionis):
+  Tamu harus tau sendiri lokasi persis tiap departemen, jalan
+  sendiri ke sana. Kalau départemen pindah lantai, semua orang
+  yang biasa ke situ jadi nyasar. Kalau kantor mau nerapin aturan
+  baru (misal "semua tamu wajib isi buku tamu dulu"), harus
+  diterapin manual di SETIAP departemen satu-satu.
+
+  CARA BARU (pakai resepsionis / front controller):
+  SEMUA tamu masuk lewat 1 pintu depan. Resepsionis nanya "mau
+  ketemu siapa / urusan apa?", cek itu urusan yang valid apa
+  nggak, baru ngarahin ke departemen & orang yang tepat. Aturan
+  kayak "isi buku tamu dulu" cukup diterapin SEKALI di resepsionis,
+  otomatis kepake buat semua departemen.
+
+Di aplikasi kita:
+  - Tamu           = request dari browser (URL yang diketik/diklik)
+  - Pintu depan     = index.php (SATU-SATUNYA file yang nerima
+                      semua request -- diatur lewat .htaccess)
+  - Resepsionis     = logic parsing URL di index.php
+  - Departemen      = Controller (Products, Dictionaries, dst)
+  - Orang di dalam
+    departemen      = method di controller (index(), create(), dst)
+
+Front controller = pola "1 pintu masuk buat semua request, yang
+itu doang yang boleh mutusin mau diarahin ke mana."
+
+
+KENAPA BUKAN 1 FILE PER HALAMAN AJA? (kaitin balik ke Bagian 1)
+--------------------------------------------------------------------
+Inget masalah di Bagian 1: dulu tiap halaman (products.php,
+create.php, dst) punya <head>, <nav>, koneksi database sendiri-
+sendiri. Front controller nerusin solusi itu: karena CUMA index.php
+yang jadi pintu masuk, hal-hal yang harus berlaku di SEMUA halaman
+(baca URL, connect ke database, nangkep error) cukup ditulis SEKALI
+di situ -- persis kayak aturan "isi buku tamu" yang cukup diterapin
+di resepsionis, bukan di tiap departemen.
+
+
+TRACE URL BARENG-BARENG (buka index.php, baca bareng mahasiswa)
+---------------------------------------------------------------------
+Contoh: mahasiswa buka  http://localhost:5000/products/create
+
+Langkah 1 -- baca alamat URL-nya
+    $uri  = "/products/create"
+    (diambil dari $_SERVER['REQUEST_URI'])
+
+Langkah 2 -- pecah jadi potongan-potongan (segments)
+    $segments = explode('/', $path);
+    // hasilnya: ['products', 'create']
+    //              [0]          [1]
+
+Langkah 3 -- tentuin $page (departemen mana)
+    $page = $segments[0];   // "products"
+
+Langkah 4 -- tentuin $id sama $action
+    Ini bagian yang paling penting dipahami. Ada 3 kemungkinan:
+
+    a) $segments[1] KOSONG / nggak ada
+       -> $id = null, $action = 'index'
+       (contoh: buka /products doang -> ke halaman daftar)
+
+    b) $segments[1] ada di daftar $noIdActions (['create','store'])
+       -> $id = null, $action = $segments[1]
+       (contoh: /products/create -> action = 'create', TIDAK
+        dianggap sebagai id, walau posisinya sama kayak id)
+
+    c) selain itu (bukan kosong, bukan create/store)
+       -> $id = $segments[1], $action = $segments[2] (atau
+          'detail' kalau segments[2] nggak ada)
+       (contoh: /products/abc-123/edit -> id = "abc-123",
+        action = "edit")
+
+    Coba tanya ke mahasiswa: kenapa harus ada pengecekan "apa
+    $segments[1] itu 'create'/'store'"? Kenapa nggak main tebak
+    langsung "kalau ada segmen ke-2, itu pasti id"? (Jawaban:
+    karena /products/create itu segmen ke-2-nya "create", bukan
+    id -- kalau nggak dicek, sistem bakal salah kira "create"
+    adalah sebuah id produk.)
+
+Langkah 5 -- ubah nama departemen jadi nama Controller
+    $controllerName = str_replace('-', '', ucwords($page, '-'));
+    // "products" -> "Products"
+
+    Ini juga kenapa penamaan file controller HARUS PersisSamaCase-
+    nya kayak hasil konversi ini -- controllers/Products.php,
+    bukan controllers/products.php atau controllers/product.php.
+
+Langkah 6 -- panggil departemen (class) yang sesuai
+    require_once $controllerFile;   // load definisi class-nya
+    $controller = new $controllerName();  // "buka pintu departemen"
+
+Langkah 7 -- panggil orang yang tepat di dalam (method)
+    $controller->$action($id);
+    // sama kayak nulis: $controller->create()
+    // tapi nama method-nya nggak di-hardcode, diambil dari URL
+
+Hasil akhir buat /products/create:
+    $page = "products", $id = null, $action = "create"
+    -> panggil (new Products())->create()
+
+
+GUARD TAMBAHAN (biar resepsionis nggak asal ngarahin)
+----------------------------------------------------------
+Sebelum beneran manggil method-nya, index.php ngecek 4 hal, dan
+kalau salah satu gagal, langsung 404:
+
+  1. File controller-nya ada nggak?           (file_exists)
+  2. Class di file itu beneran ada nggak?      (class_exists)
+  3. Method GET/POST-nya bener nggak?          ($postOnlyActions)
+  4. Method yang mau dipanggil beneran ada?    (method_exists)
+
+Poin 3 itu yang jagain, misalnya, biar orang nggak bisa hapus data
+cuma dengan buka link biasa (GET) ke /products/xxx/delete -- delete
+WAJIB lewat form submit (POST).
+
+
+LATIHAN TRACE (tanya ke mahasiswa, satu-satu, suruh mereka jawab
+$page / $id / $action / method yang kepanggil)
+---------------------------------------------------------------------
+1. GET  /products
+   -> page=products, id=null, action=index
+   -> (new Products())->index()
+
+2. GET  /categories/create
+   -> page=categories, id=null, action=create
+   -> (new Categories())->create()
+
+3. POST /products/9f2e.../update
+   -> page=products, id="9f2e...", action=update
+   -> (new Products())->update("9f2e...")
+
+4. GET  /dictionaries/9f2e...
+   (perhatiin: cuma 2 segmen, id doang tanpa action)
+   -> page=dictionaries, id="9f2e...", action="detail" (default)
+   -> (new Dictionaries())->detail("9f2e...")
+
+5. GET  /categories/9f2e...
+   (Categories TIDAK punya method detail())
+   -> lolos parsing (action="detail"), tapi method_exists() gagal
+   -> 404 "Action not found"
+   (soal jebakan: nunjukin bedanya "URL valid secara FORMAT" vs
+   "action-nya beneran ada di controller-nya")
+
+
+RANGKUMAN
+------------
+- Front controller = 1 pintu masuk (index.php) buat SEMUA request,
+  ngegantiin cara lama "1 file PHP = 1 halaman"
+- index.php baca URL -> pecah jadi $page/$id/$action -> ubah $page
+  jadi nama Controller -> panggil method yang namanya = $action
+- Aturan yang berlaku ke SEMUA halaman (baca URL, connect DB,
+  tangkep error, cek GET/POST) cukup ditulis sekali di sini
+- Controller & method-nya sendiri nggak tau-menau soal parsing
+  URL -- itu murni tanggung jawab front controller
+
+
+JEMBATAN KE SESI BERIKUTNYA
+-------------------------------
+"Nah, sekarang kita tau gimana caranya method di Controller itu
+KEPANGGIL. Tapi apa isinya method itu sendiri? Kenapa ada
+$this->model, constructor, dst? Itu topik Bagian 4."
+
+
+CATATAN BUAT PENGAJAR
+------------------------
+- Estimasi waktu: 40-50 menit -- ini bagian paling padat, kasih
+  waktu lebih dibanding Bagian 1 & 2.
+- WAJIB buka index.php beneran di editor pas sesi ini, jangan cuma
+  dijelasin di slide. Baca baris per baris bareng-bareng, jalanin
+  var_dump($page, $id, $action) kalau perlu buat mahasiswa yang
+  masih ragu.
+- Latihan trace di atas itu inti sesi ini -- terutama soal #5
+  (jebakan action valid secara format tapi method-nya nggak ada).
+  Itu yang paling sering bikin mahasiswa bingung pas debugging
+  nanti ("URL-nya bener kok kenapa 404").
+- Kalau ada yang nanya "kenapa nggak pake array routing kayak
+  Laravel (Route::get(...))?" -- jawab jujur: itu pola yang lebih
+  scalable, tapi butuh mahasiswa udah nyaman dulu sama cara manual
+  kayak gini. Convention-based routing (nama URL = nama Controller
+  = nama method) itu langkah lebih gampang sebelum lompat ke
+  routing table eksplisit.

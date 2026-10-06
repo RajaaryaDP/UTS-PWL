@@ -1,0 +1,242 @@
+================================================================
+BAGIAN 7 : RANGKAI JADI 1 ALUR UTUH
+(sesi puncak -- gabungin Bagian 3, 4, 5, 6 jadi 1 cerita utuh)
+================================================================
+
+TUJUAN SESI INI
+----------------
+Bagian 3-6 udah bedah tiap bagian SATU-SATU (front controller,
+Controller, Model, View). Sesi ini nggak ada konsep baru -- tujuannya
+cuma 1: bikin mahasiswa BISA NELUSURIN 1 alur PENUH dari awal
+(user klik sesuatu) sampai akhir (halaman baru muncul), ngelewatin
+SEMUA lapis yang udah dipelajari, tanpa nyasar di tengah jalan.
+
+Ini sesi yang paling nentuin apakah mereka BENERAN paham atau cuma
+apal istilah doang.
+
+
+CARA BAWAINNYA: LIVE DEMO, BUKAN SLIDE
+-------------------------------------------
+Buka browser + editor bareng-bareng. Klik tombol beneran, terus
+LANGSUNG lompat ke kode yang related, baris per baris. Jangan
+dijelasin dari slide teks doang -- alur ini harus KELIATAN jalan.
+
+
+-----------------------------------------------------------------
+ALUR 1: BUKA HALAMAN DAFTAR PRODUK (GET /products)
+-----------------------------------------------------------------
+
+  [BROWSER]
+    User ketik/klik ke: http://localhost:5000/products
+        |
+        v
+  [index.php] (Bagian 3)
+    1. set_exception_handler(...) didaftarin duluan (jaga-jaga)
+    2. Parse URL -> $segments = ['products']
+    3. $page = "products", $segments[1] kosong
+       -> $id = null, $action = "index"
+    4. $method = "GET"
+    5. "index" BUKAN di $postOnlyActions -> $expectsPost = false
+    6. $controllerName = "Products"
+    7. require controllers/Products.php (load definisi class)
+    8. class_exists('Products') -> true, lanjut
+    9. cek method: expectsPost=false, method=GET -> COCOK, lanjut
+   10. $controller = new Products()
+         -> constructor jalan: $this->model = new ProductModel()
+   11. method_exists($controller, 'index') -> true
+   12. $id === null -> panggil $controller->index()   [TANPA argumen]
+        |
+        v
+  [controllers/Products.php -> index()] (Bagian 4)
+    public function index()
+    {
+        $search   = trim($_GET['q'] ?? '');  // kosong (nggak ada ?q=...)
+        $products = $this->model->getAll($search);
+        require_once __DIR__ . '/../views/products/index.php';
+    }
+        |
+        v
+  [models/ProductModel.php -> getAll()] (Bagian 5)
+    public function getAll($search = null)
+    {
+        // $search kosong, jadi masuk cabang ini:
+        $stmt = $this->db->query("SELECT * FROM products ORDER BY created_at DESC");
+        return $stmt->fetchAll();
+        // balik ke Controller: array isi SEMUA produk
+    }
+        |
+        v  (balik lagi ke index(), $products udah keisi array)
+        |
+  [views/products/index.php] (Bagian 6)
+    require header.php (nav, <head>, dst)
+    foreach ($products as $product) { ... tampilin 1 baris tabel ... }
+    require footer.php
+        |
+        v
+  [BROWSER]
+    Nampilin halaman HTML lengkap berisi tabel produk
+
+
+-----------------------------------------------------------------
+ALUR 2: TAMBAH PRODUK BARU -- SUBMIT FORM YANG GAGAL VALIDASI
+-----------------------------------------------------------------
+
+  [BROWSER]
+    User klik "+ Add Product" -> GET /products/create
+        |
+        v
+  [index.php] -> $page=products, $id=null, $action="create"
+    -> $controller->create()
+        |
+        v
+  [Products::create()]
+    public function create()
+    {
+        $isEdit = false;
+        require_once __DIR__ . '/../views/products/form.php';
+    }
+        |
+        v
+  [views/products/form.php]
+    $values = $product ?? [];   // $product belum ke-set -> $values = []
+    ... render form kosong, action ke "/products/store" ...
+        |
+        v
+  [BROWSER]
+    User isi Name="Kopi", Price="" (SENGAJA DIKOSONGIN), Description="enak"
+    Klik "Save" -> form nge-submit POST ke /products/store
+        |
+        v
+  [index.php] -> $page=products, $id=null (karena "store" ada di
+                 $noIdActions), $action="store"
+    -> "store" ADA di $postOnlyActions -> $expectsPost = true
+    -> $method = "POST" -> COCOK, lanjut
+    -> $controller->store()
+        |
+        v
+  [Products::store()]
+    public function store()
+    {
+        $errors = $this->validate($_POST);
+        // validate() ngecek: name ada isinya (OK), price KOSONG (GAGAL!)
+        // $errors = ['price' => 'Price is required.']
+
+        if (!empty($errors)) {          // ada isinya -> TRUE
+            $isEdit = false;
+            require_once __DIR__ . '/../views/products/form.php';
+            return;                      // STOP di sini, TIDAK exit
+        }
+        // baris di bawah ini TIDAK KEPANGGIL
+    }
+        |
+        v
+  [views/products/form.php] (dipanggil LAGI, tapi kali ini ada $errors)
+    $values = $product ?? [];  // $product masih belum ke-set -> []
+    // artinya form balik KOSONG (inget diskusi kita: kita PILIH
+    // nggak nyimpen input lama demi kesederhanaan)
+    ... input Price dikasih class 'is-invalid' + pesan error ...
+        |
+        v
+  [BROWSER]
+    Muncul lagi form Create Product, kali ini ada tulisan merah
+    "Price is required." di bawah kolom Price. Name & Description
+    balik KOSONG (bukan kesalahan -- ini emang pilihan desain kita).
+
+
+-----------------------------------------------------------------
+ALUR 3: SUBMIT ULANG DENGAN DATA VALID -- SAMPAI BERHASIL
+-----------------------------------------------------------------
+
+  [BROWSER]
+    User isi ulang semua field dengan benar, klik "Save"
+    POST /products/store lagi
+        |
+        v
+  [Products::store()]
+    $errors = $this->validate($_POST);   // $errors = [] (kosong, semua valid)
+
+    if (!empty($errors)) { ... }          // FALSE, di-skip
+
+    $this->model->create([
+        'name'        => trim($_POST['name']),
+        'price'       => (int) $_POST['price'],
+        'description' => trim($_POST['description']),
+    ]);
+        |
+        v
+  [ProductModel::create()]
+    $id = Uuid::uuid4()->toString();      // bikin id acak baru
+    $stmt = $this->db->prepare("INSERT INTO products (id, name, price, description) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$id, $data['name'], $data['price'], $data['description']]);
+    return $id;
+    // data BENERAN kesimpen di database di titik ini
+        |
+        v  (balik ke store(), lanjut baris berikutnya)
+        |
+  [Products::store()] (lanjut)
+    header('Location: ' . BASE_URL . '/products');
+    exit;   // WAJIB -- stop total, jangan lanjut kode apapun lagi
+        |
+        v
+  [BROWSER]
+    Nerima response "302 redirect ke /products"
+    Browser OTOMATIS bikin request BARU: GET /products
+    -> ini ngulang PERSIS Alur 1 dari awal, cuma sekarang produk
+       barunya udah ikut muncul di tabel (karena udah ke-INSERT)
+
+
+-----------------------------------------------------------------
+POIN PALING PENTING DARI 3 ALUR DI ATAS
+-----------------------------------------------------------------
+1. Setiap kali browser pindah/reload halaman = REQUEST BARU, alur-
+   nya ngulang dari index.php lagi dari nol. Nggak ada "state" yang
+   nempel antar request kecuali yang sengaja disimpen ke database.
+
+2. Klik tombol Save yang GAGAL validasi itu TETEP 1 request penuh
+   (GET/POST) yang jalanin SEMUA lapis (index.php -> Controller ->
+   [Model kalau perlu] -> View) -- bedanya cuma di titik mana dia
+   "berhenti lebih awal" (return) dan apa yang di-render.
+
+3. Redirect (header + exit) itu SEBENERNYA nyuruh BROWSER bikin
+   request KEDUA yang benar-benar baru (GET /products) -- bukan
+   "lompat" langsung ke kode index()-nya Controller. Ini yang
+   ngejelasin kenapa abis create sukses, browser keliatan "reload"
+   halaman /products.
+
+
+LATIHAN PALING PENTING DI SELURUH DOKUMEN INI
+---------------------------------------------------
+Minta 1-2 mahasiswa maju, TANPA liat dokumen ini, buat NELUSURIN
+alur di papan tulis buat kasus:
+
+    "User buka halaman edit produk yang UUID-nya nggak ada di
+    database (contoh: /products/00000000-.../edit)"
+
+Mereka harus bisa nunjuk: baris mana di index.php yang meng-cek
+ini, method mana di Controller yang kepanggil, dan kenapa endingnya
+404 bukan crash.
+
+
+RANGKUMAN
+------------
+- 1 klik/submit = 1 request baru, mulai dari index.php lagi dari
+  nol, nggak ada yang "nempel" dari request sebelumnya
+- Alur normal: index.php (routing) -> Controller (koordinasi) ->
+  Model (kalau perlu data) -> View (kalau perlu render HTML)
+- Redirect (header+exit) = nyuruh browser bikin request BARU,
+  bukan lompat kode langsung
+- Semua yang dipelajari di Bagian 3-6 itu potongan dari 1 cerita
+  yang sama -- sesi ini yang nyambungin semuanya
+
+
+CATATAN BUAT PENGAJAR
+------------------------
+- Estimasi waktu: 40-60 menit -- ini sesi PALING PENTING, jangan
+  dipotong walau waktu kelas mepet.
+- WAJIB pakai browser Network tab (F12 -> Network) pas demo, biar
+  mahasiswa liat SENDIRI ada 2 request kepisah (POST /products/store
+  yang balikin 302, terus GET /products otomatis nyusul) -- ini
+  yang paling susah dibayangin dari teks doang.
+- Kalau ada waktu lebih, ulangin alur yang sama tapi buat
+  Dictionaries atau Categories -- biar keliatan pola yang SAMA
+  berlaku di resource manapun, bukan cuma khusus Products.

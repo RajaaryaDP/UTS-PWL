@@ -1,0 +1,201 @@
+================================================================
+BAGIAN 4 : CONTROLLER
+(lanjutan dari Bagian 3 -- mahasiswa udah ngerti method-nya KEPANGGIL gimana)
+================================================================
+
+TUJUAN SESI INI
+----------------
+Bagian 3 udah jawab "gimana caranya index() atau create() itu
+kepanggil dari URL". Sesi ini jawab pertanyaan berikutnya: "apa isi
+di DALAM method-method itu, dan kenapa strukturnya kayak gitu?"
+
+
+KONSEP: CONTROLLER = KOORDINATOR, BUKAN PEKERJA
+----------------------------------------------------
+Balik ke analogi restoran di Bagian 2: Controller itu PELAYAN.
+Pelayan nggak masak sendiri (itu tugas dapur / Model), pelayan juga
+nggak yang nyusun piring & garnish sendiri (itu tugas penyajian /
+View). Tugas pelayan cuma:
+  1. Dengerin apa yang diminta tamu (baca $_POST / $_GET / $id)
+  2. Suruh dapur masak / ambil bahan (panggil method di Model)
+  3. Kalau ada masalah (bahan abis, dst), kasih tau tamu (404, redirect
+     balik ke form dengan pesan error)
+  4. Kalau berhasil, suruh sajiin ke tamu (require view)
+
+Aturan penting: Controller TIDAK PERNAH nulis SQL mentah sendiri
+(itu tugas Model), dan TIDAK PERNAH nulis tag HTML mentah sendiri
+(itu tugas View). Coba buka controllers/Products.php sekarang --
+tantangan ke mahasiswa: "coba cari baris yang ada kata SELECT/INSERT
+di file ini" (jawabannya: nggak ada sama sekali).
+
+
+ANATOMI 1 CONTROLLER (buka controllers/Products.php bareng)
+-----------------------------------------------------------------
+
+    class Products
+    {
+        private $model;
+
+        public function __construct()
+        {
+            $this->model = new ProductModel();
+        }
+
+        private function validate($data) { ... }
+
+        public function index() { ... }
+        public function detail($id) { ... }
+        public function create() { ... }
+        public function store() { ... }
+        public function edit($id) { ... }
+        public function update($id) { ... }
+        public function delete($id) { ... }
+    }
+
+Bedah satu-satu:
+
+1. private $model + constructor
+   Ini yang paling sering ditanya: "kenapa bikin $this->model = new
+   ProductModel() di constructor, bukan di tiap method aja?"
+   Jawab: constructor itu otomatis kepanggil PERSIS SEKALI, pas
+   index.php nulis `new Products()`. Kalau bikin ProductModel() di
+   tiap method, tiap 1 request bakal bikin objek ProductModel
+   berkali-kali kalau method itu manggil model lebih dari sekali --
+   boros & nggak perlu. Cukup 1 kali di awal, dipake bareng-bareng
+   sama semua method lewat $this->model.
+
+   private artinya cuma bisa diakses dari DALAM class Products
+   sendiri -- index.php nggak akan pernah bisa nulis
+   $controller->model langsung dari luar. Ini portal ke konsep
+   ENCAPSULATION (data disembunyiin, cuma boleh diakses lewat method
+   yang disediain class-nya).
+
+2. private function validate($data)
+   Beda sama method-method lain yang public, validate() itu private.
+   Artinya method ini CUMA dipanggil dari dalam class Products
+   sendiri (lihat: dipanggil dari store() dan update() pakai
+   $this->validate(...)). index.php TIDAK PERNAH bisa manggil
+   $controller->validate(...) langsung -- soalnya validate() bukan
+   sebuah "action" yang punya URL sendiri, dia cuma helper internal.
+
+3. Method public (index, detail, create, store, edit, update, delete)
+   Ini yang BOLEH dipanggil dari index.php (lewat $action). Semua
+   public karena semua ini "pintu masuk" yang valid dari luar.
+
+
+POLA UMUM YANG BERULANG DI SETIAP METHOD
+---------------------------------------------
+Kalau diperhatiin, hampir semua method ngikutin pola yang sama:
+
+    public function edit($id)
+    {
+        $product = $this->model->getById($id);        // 1. ambil data
+
+        if ($product === null) {                       // 2. cek valid
+            http_response_code(404);
+            echo '404 - Product not found';
+            return;
+        }
+
+        $isEdit = true;                                 // 3. siapin data buat view
+        require_once __DIR__ . '/../views/products/form.php';  // 4. render view
+    }
+
+    1. Minta data ke Model (kalau perlu)
+    2. Cek data/input itu valid apa nggak (kalau nggak, stop +
+       kasih respons error)
+    3. Siapin variabel-variabel yang bakal dipake View
+    4. require view yang sesuai
+
+Ini pola yang HAMPIR SELALU muncul di controller CRUD apapun --
+kalau mahasiswa bikin controller baru sendiri, pola ini yang harus
+mereka tiru.
+
+
+"return" VS "exit" -- KAPAN PAKE YANG MANA?
+------------------------------------------------
+Perhatiin baik-baik, ada 2 cara "berhenti" di controller:
+
+  return;
+    Dipake pas mau STOP method ini doang, tapi request-nya tetep
+    lanjut biasa (browser tetep nunggu response HTML yang udah
+    di-echo, misal pesan 404). Dipake di: guard 404, dan abis
+    require view form.php (biar nggak lanjut ke kode di bawahnya).
+
+  exit;
+    Dipake abis header('Location: ...') buat redirect. WAJIB pake
+    exit setelah redirect, soalnya kalau nggak, kode PHP di
+    bawahnya TETEP JALAN walau browser udah dikasih tau pindah
+    halaman -- bisa jadi bug aneh (misal double-insert data).
+
+Coba tanya ke mahasiswa: di method store(), kenapa ada 'return;'
+di baris sesudah require form.php (pas validasi gagal), tapi ada
+'exit;' di baris paling akhir (pas berhasil)? (Jawab: yang pertama
+cuma nampilin ulang form dengan pesan error -- proses PHP boleh
+lanjut normal karena responnya emang mau di sini. Yang kedua itu
+abis redirect -- HARUS exit biar $this->model->create() nggak
+kepanggil dua kali kalau ada kode nyasar di bawahnya.)
+
+
+GUARD 404 -- KENAPA DICEK BERULANG KALI?
+---------------------------------------------
+Perhatiin: edit($id), update($id), sama delete($id) SEMUA ngecek
+"$this->model->getById($id) === null" dulu sebelum ngerjain apapun.
+Kenapa nggak cukup dicek sekali doang?
+
+Jawab: karena edit/update/delete itu 3 REQUEST YANG BEDA (3 kali
+mahasiswa buka browser / submit form yang beda), bukan 1 alur
+program yang jalan terus. Tiap request baru = state-nya "lupa"
+semua, harus dicek ulang dari nol. Nggak ada cara buat "inget"
+hasil pengecekan dari request sebelumnya (kecuali pake session,
+yang belum kita bahas).
+
+
+LATIHAN (tanya ke mahasiswa)
+---------------------------------
+1. Kalau mahasiswa mau nambahin action baru "restore" (misal buat
+   undelete), langkah apa aja yang harus dilakuin? (Jawab: bikin
+   public function restore($id) di controller, daftarin 'restore'
+   ke $postOnlyActions kalau perlu POST, bikin method restore() di
+   Model kalau perlu query baru.)
+
+2. Kenapa method create() TIDAK menerima parameter $id, sementara
+   edit() menerima? (Jawab: karena route /products/create nggak
+   punya id di URL-nya -- lihat lagi Bagian 3 soal $noIdActions.)
+
+3. Apa yang terjadi kalau baris 'exit;' di method store() (setelah
+   redirect berhasil) sengaja dihapus? Coba prediksi, terus buktiin
+   langsung di browser.
+
+
+RANGKUMAN
+------------
+- Controller = koordinator: minta data ke Model, siapin variabel,
+  suruh View nampilin. TIDAK NULIS SQL/HTML mentah sendiri.
+- constructor dipake buat nyiapin $this->model sekali di awal
+- Method private (misal validate()) = helper internal, nggak bisa
+  dipanggil dari luar class / dari index.php
+- Method public = pintu masuk yang valid dari URL
+- 'return' buat stop method tapi lanjut render response biasa,
+  'exit' WAJIB dipake setelah redirect
+
+
+JEMBATAN KE SESI BERIKUTNYA
+-------------------------------
+"Controller manggil $this->model->getById($id) -- tapi APA yang
+kejadian di dalem situ? Gimana caranya PHP bisa 'ngobrol' sama
+MySQL? Itu topik Bagian 5: Model & Query."
+
+
+CATATAN BUAT PENGAJAR
+------------------------
+- Estimasi waktu: 30-40 menit.
+- Kalau mahasiswa belum pernah kenal OOP (class, constructor,
+  $this->) sama sekali, sesi ini bisa makan waktu lebih lama --
+  jangan buru-buru. Constructor & $this-> itu konsep baru yang
+  numpang lewat di sesi ini, bukan topik utamanya, tapi harus
+  clear dulu sebelum lanjut.
+- Latihan #3 (hapus exit; abis redirect) bagus banget buat live
+  demo -- efeknya kadang nggak keliatan langsung (tergantung kode
+  di bawahnya), jadi bagus buat ngajarin "kenapa kebiasaan baik itu
+  penting walau sekali-sekali kelihatannya nggak ngefek."

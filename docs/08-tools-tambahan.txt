@@ -1,0 +1,169 @@
+================================================================
+BAGIAN 8 : TOOLS TAMBAHAN
+(bonus -- bukan bagian dari alur MVC inti, tapi bagian nyata dari
+project ini yang bakal ditanyain/ketemu mahasiswa. Bebas mau
+diajarin kapan aja, nggak harus urut kayak Bagian 1-7)
+================================================================
+
+TUJUAN SESI INI
+----------------
+Bagian 1-7 udah nutup keseluruhan alur MVC inti. Dokumen ini
+ngumpulin fitur-fitur "di luar MVC" yang ada di project ini -- biar
+kalau mahasiswa nemu/nanya soal ini, ada rujukan siap pakai.
+
+
+1. composer serve -- CARA JALANIN PROJECT
+-----------------------------------------------
+    composer serve
+
+Ini shortcut buat:
+    php -S localhost:5000 index.php
+
+"php -S" itu built-in development server bawaan PHP (nggak perlu
+install Apache/XAMPP buat coba-coba lokal). Angka "index.php" di
+belakang itu PENTING -- itu namanya ROUTER SCRIPT, artinya SEMUA
+request (termasuk file statis kayak CSS) dilewatin ke index.php
+dulu. Makanya di index.php ada blok:
+
+    if (PHP_SAPI === 'cli-server') {
+        $requestedFile = __DIR__ . parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+        if (is_file($requestedFile)) {
+            return false;
+        }
+    }
+
+Ini yang bilang "kalau yang diminta itu file yang BENERAN ada
+(misal assets/css/style.css), serve langsung, jangan diproses
+sebagai route." Tanpa ini, CSS-nya nggak bakal kemuat pas pakai
+php -S (walaupun di Apache beneran nggak masalah, karena .htaccess
+yang ngurus itu di sana).
+
+PENTING buat mahasiswa: nggak perlu restart composer serve tiap
+abis edit kode. PHP baca ulang file dari disk SETIAP request baru
+-- beda total sama Node.js yang butuh nodemon/hot-reload. Kalau
+ada error fatal di 1 request, server-nya TETAP HIDUP, cuma request
+itu doang yang keliatan error (dites & dibuktiin bareng2 kalau
+perlu -- matiin sebentar koneksi database, liat 1 halaman error,
+terus request LAIN yang nggak butuh database tetep jalan normal).
+
+
+2. composer makeMVC -- GENERATOR RESOURCE BARU
+----------------------------------------------------
+    composer makeMVC NamaResource
+
+Contoh:
+    composer makeMVC Tags
+
+Bakal otomatis bikinin:
+    models/TagsModel.php
+    controllers/Tags.php
+    views/tags/index.php
+    views/tags/form.php
+
+Isinya SAMA PERSIS strukturnya kayak Categories (cuma field id +
+name) -- karena Categories emang jadi "template" paling minimum di
+project ini. Generator ini nggak bikinin tabel database-nya (itu
+harus manual, generator bakal kasih tau query CREATE TABLE-nya di
+akhir).
+
+Yang perlu diinget:
+  - Nama argumen (misal "Tags") LANGSUNG dipake jadi:
+      * nama class Model: TagsModel
+      * nama class Controller: Tags
+      * nama tabel & folder view: tags (huruf kecil semua)
+  - Generator ini SENGAJA nggak nyoba nge-ubah kata jamak jadi
+    tunggal atau sebaliknya (misal "Categories" -> "Category").
+    Itu keputusan yang disengaja: aturan jamak/tunggal bahasa
+    Inggris itu banyak pengecualiannya (category->categories,
+    box->boxes, child->children, dst), nggak ada rumus simpel yang
+    selalu bener -- jadi generator-nya milih konsisten: apa yang
+    kamu ketik, itu juga yang dipake apa adanya di semua tempat.
+  - Kalau resource-nya udah ada (filenya udah ada), generator bakal
+    NOLAK jalan (biar nggak ketimpa nggak sengaja).
+
+File generator-nya sendiri ada di tools/make-mvc.php, kalau mau
+liat/ubah template-nya.
+
+
+3. HALAMAN ERROR "MEME" -- BEDANYA SAMA 404
+--------------------------------------------------
+Ada 2 jenis "sesuatu yang salah" di project ini, dan keduanya
+ditangani BEDA:
+
+  a) 404 (halaman/id/action nggak ketemu)
+     Ini BUKAN bug -- ini respons yang MEMANG disengaja. Contoh:
+     buka /products/create/nyasar, atau id yang nggak ada di
+     database. Munculnya teks polos "404 - ... not found".
+
+  b) Error beneran (bug, query salah, koneksi database putus, dst)
+     Ini kesalahan yang NGGAK disengaja. Ditangkap sama:
+
+        set_exception_handler(function (Throwable $exception) {
+            http_response_code(500);
+            require __DIR__ . '/views/errors/crash.php';
+        });
+
+     (baris ini paling atas di index.php, didaftarin SEBELUM
+     apapun lain, biar nangkep error dari mana aja -- termasuk pas
+     lagi connect ke database)
+
+     Bukannya nampilin dump error mentah PHP (yang serem & bocorin
+     path file server), munculnya halaman dengan gambar & pesan
+     error + lokasi file:baris di bawahnya (masih kebaca buat
+     debugging, cuma dikemas lebih rapi).
+
+Coba tanya ke mahasiswa: kenapa 404 TIDAK ikut ketangkep sama
+set_exception_handler ini? (Jawab: karena 404 kita itu cuma
+`http_response_code(404); echo '...'; exit;` -- bukan sebuah
+exception yang di-throw, jadi nggak ada yang buat exception handler
+"tangkep".)
+
+
+4. PROTEKSI GET/POST -- RANGKUMAN (detail di Bagian 3)
+-------------------------------------------------------------
+    $postOnlyActions = ['store', 'update', 'delete'];
+
+Aksi yang MENGUBAH data (nambah/ubah/hapus) WAJIB lewat POST, nggak
+boleh cuma diakses lewat link/URL biasa (GET). Ini nyegah insiden
+kayak "search engine crawler ngikutin link delete terus data ke-
+hapus otomatis" -- kejadian nyata yang pernah kejadian di web-web
+lama yang nggak mikirin ini.
+
+
+5. VALIDASI -- POLA YANG DIPAKE DI SEMUA CONTROLLER
+-----------------------------------------------------------
+Semua Controller punya private function validate($data) dengan
+pola yang sama: cek tiap field, kalau salah masukin pesannya ke
+array $errors dengan KEY = NAMA FIELD:
+
+    if (empty(trim($data['name'] ?? ''))) {
+        $errors['name'] = 'Name is required.';
+    }
+
+Kenapa key-nya nama field (bukan angka 0,1,2,...)? Karena di View,
+kita ngecek per-field: `isset($errors['name'])`. Kalau pake angka,
+View nggak akan tau error itu punya field mana.
+
+
+RANGKUMAN
+------------
+- composer serve = jalanin dev server, nggak perlu restart tiap
+  ganti kode
+- composer makeMVC <Nama> = generate resource baru (Model+Controller
+  +View), template dari Categories, TANPA logic jamak/tunggal
+- 404 = respons disengaja (bukan bug), error meme = bug/kesalahan
+  beneran (uncaught exception)
+- Semua aksi ubah-data WAJIB lewat POST
+- $errors di validate() key-nya nama field, biar View bisa nge-cek
+  per-field
+
+
+CATATAN BUAT PENGAJAR
+------------------------
+- Dokumen ini nggak perlu diajarin sesi khusus kayak Bagian 1-7 --
+  cocoknya dipake pas mahasiswa NANYA soal fitur-fitur ini secara
+  natural pas eksplorasi/develop sendiri.
+- composer makeMVC itu bagus buat ditunjukin PAS mahasiswa udah
+  ngerti alur manual (Bagian 1-7) dulu -- kalau ditunjukin dari
+  awal, mereka bisa jadi ngandelin generator tanpa ngerti apa yang
+  di-generate-nya.

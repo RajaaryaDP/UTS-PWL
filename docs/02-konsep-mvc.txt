@@ -1,0 +1,144 @@
+================================================================
+BAGIAN 2 : KONSEP MVC + STRUKTUR FOLDER
+(lanjutan dari Bagian 1 -- mahasiswa udah ngerasain masalahnya)
+================================================================
+
+TUJUAN SESI INI
+----------------
+Mahasiswa udah nemuin sendiri di Bagian 1 kalau masalahnya adalah
+"3 hal beda urusan nyampur jadi 1 file". Sesi ini kasih nama &
+bentuk konkret buat 3 hal itu, terus tunjukin wujud aslinya di
+folder projek contoh.
+
+Jangan mulai dari definisi textbook ("Model adalah...", "View
+adalah..."). Mulai dari analogi, baru masuk ke kode.
+
+
+ANALOGI RESTORAN (buka sesi dengan ini)
+------------------------------------------
+Bayangin kalian makan di restoran:
+
+  - Ada TAMU yang minta makanan ke PELAYAN.
+  - PELAYAN nyatet pesanan, terus ke DAPUR buat minta dimasakin.
+  - DAPUR yang tau resep, yang ngolah bahan mentah jadi makanan.
+    Dapur nggak peduli mau disajiin di piring cantik atau
+    dibungkus takeaway -- itu bukan urusan dapur.
+  - Setelah makanan jadi, PELAYAN yang nyajiin ke meja tamu
+    dengan cara yang rapi (piring, garnish, dst).
+
+Petakan ke istilah pemrograman:
+
+  - TAMU           = orang yang buka website (browser)
+  - PELAYAN         = CONTROLLER -> nerima request, nentuin harus
+                      ngapain, manggil yang lain, nyiapin jawaban
+  - DAPUR           = MODEL -> ngurus data, ngomong ke database,
+                      nggak peduli soal tampilan sama sekali
+  - CARA PENYAJIAN  = VIEW -> HTML yang ditampilin ke user,
+                      nggak peduli soal gimana caranya data itu
+                      didapat dari database
+
+Kunci yang harus nempel: MODEL nggak pernah nyentuh HTML. VIEW
+nggak pernah nyentuh query SQL. Yang boleh megang dua-duanya cuma
+CONTROLLER, dan tugasnya cuma "menghubungkan", bukan "mengerjakan".
+
+
+PEMETAAN KE FOLDER PROJEK CONTOH
+------------------------------------
+Sekarang baru buka folder projeknya bareng-bareng. Strukturnya:
+
+    pwl-sample/
+    |-- index.php                <-- pintu masuk SEMUA request
+    |-- config/
+    |   `-- database.php         <-- setting koneksi ke database
+    |-- controllers/
+    |   `-- Products.php         <-- C : pelayan
+    |-- models/
+    |   `-- ProductModel.php     <-- M : dapur
+    |-- views/
+    |   |-- layout/
+    |   |   |-- header.php       <-- bagian atas HTML (dipakai bareng)
+    |   |   `-- footer.php       <-- bagian bawah HTML (dipakai bareng)
+    |   `-- products/
+    |       |-- index.php        <-- V : tampilan daftar produk
+    |       `-- form.php         <-- V : tampilan form tambah/edit
+    `-- assets/
+        `-- css/style.css        <-- styling (bukan bagian MVC inti)
+
+Tunjukin isi tiap file SEKILAS aja (jangan dibedah baris per baris
+dulu -- itu buat Bagian 3, 4, 5). Cukup buktiin:
+
+  - Buka models/ProductModel.php -> tunjukin: nggak ada tag HTML
+    sama sekali di file ini. Isinya cuma PHP + query SQL.
+
+  - Buka views/products/index.php -> tunjukin: nggak ada query SQL
+    (`SELECT`, `$conn->query`, dst) sama sekali di file ini. Isinya
+    cuma HTML + variabel PHP yang udah jadi (`$products`).
+
+  - Buka controllers/Products.php -> tunjukin: file inilah yang
+    "manggil" ProductModel DAN "manggil" views/products/index.php.
+    Controller nggak punya HTML mentah, nggak punya SQL mentah --
+    dia cuma nyuruh Model dan View kerja.
+
+
+LATIHAN PEMETAAN (interaktif, tanya ke mahasiswa)
+-----------------------------------------------------
+Kasih daftar tugas ini, suruh mereka jawab "ini harusnya masuk
+Model, View, atau Controller?" -- SEBELUM dikasih tau jawabannya:
+
+  1. "Ambil semua data produk dari tabel products"
+     -> Model
+
+  2. "Kalau tombol Hapus diklik, tentuin produk mana yang mau
+      dihapus dari URL-nya"
+     -> Controller
+
+  3. "Tampilkan tabel HTML berisi daftar produk"
+     -> View
+
+  4. "Cek apakah nama produk yang diisi di form kosong atau nggak"
+     -> Controller (ini validasi input, bukan validasi data di
+        database -- jadi tugas pelayan, bukan dapur)
+
+  5. "Simpan produk baru ke database"
+     -> Model
+
+  6. "Redirect balik ke halaman daftar produk setelah berhasil
+      simpan"
+     -> Controller
+
+Kalau ada yang jawab salah, itu bagus -- justru dari situ ngobrolin
+KENAPA jawabannya gitu, bukan cuma kasih jawaban benernya doang.
+
+
+RANGKUMAN
+------------
+- Model  = ngurus DATA (nyambung ke database), nggak tau soal HTML
+- View   = ngurus TAMPILAN (HTML), nggak tau soal database
+- Controller = PENGHUBUNG, nerima request dari browser, manggil
+  Model buat ambil/simpan data, manggil View buat nampilin hasil
+
+Belum dibahas sama sekali: gimana caranya 1 URL (misal
+/products/create) bisa "nyambung" otomatis ke Controller yang
+bener. Itu topik Bagian 3.
+
+
+JEMBATAN KE SESI BERIKUTNYA
+-------------------------------
+"Coba perhatiin, di folder tadi cuma ada 1 file di root:
+index.php. Padahal aplikasi kita punya banyak "halaman": daftar
+produk, form tambah, form edit. Kok bisa cuma 1 file doang yang
+jadi pintu masuk buat semuanya? Itu yang kita bedah minggu depan."
+
+
+CATATAN BUAT PENGAJAR
+------------------------
+- Estimasi waktu: 30-40 menit.
+- Siapin folder projek contoh ini kebuka di editor SEBELUM kelas
+  mulai, biar nggak buang waktu pas mindah-mindah file di kelas.
+- Latihan pemetaan itu inti sesi ini -- jangan diskip walau waktu
+  mepet. Ini yang bikin konsep abstrak (M/V/C) jadi kebayang
+  konkret di kepala mereka.
+- Kalau ada mahasiswa nanya "terus gimana ceritanya index.php bisa
+  manggil Products.php?" -- jawab aja "sabar, minggu depan", jangan
+  kepancing jelasin front controller sekarang. Fokus 1 topik per
+  sesi.
