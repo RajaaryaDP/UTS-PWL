@@ -4,7 +4,7 @@ $driver  = 'mysql';
 $host    = 'localhost';
 $db_name = 'PBL_TI_2025_A_RAJA';
 $user    = 'root';
-$pass    = '';
+$pass    = 'raja123';
 
 try {
     $conn = new PDO("mysql:host={$host};dbname={$db_name};charset=utf8mb4", $user, $pass);

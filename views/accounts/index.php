@@ -15,12 +15,18 @@ require_once __DIR__ . '/../layout/header.php';
             <?php endif; ?>
         </p>
     </div>
-    <?php if (!empty($isAdmin)): ?>
-        <a href="<?= BASE_URL ?>/accounts/create" class="btn btn-primary d-flex align-items-center gap-2 px-3 py-2 shadow-sm">
-            <i class="bi bi-plus-lg"></i>
-            <span>Tambah Akun</span>
+    <div class="d-flex align-items-center gap-2">
+        <a href="<?= BASE_URL ?>/accounts/change-password" class="btn <?= !empty($isAdmin) ? 'btn-outline-primary' : 'btn-primary' ?> d-flex align-items-center gap-2 px-3 py-2 shadow-sm">
+            <i class="bi bi-key-fill"></i>
+            <span>Ganti Password</span>
         </a>
-    <?php endif; ?>
+        <?php if (!empty($isAdmin)): ?>
+            <a href="<?= BASE_URL ?>/accounts/create" class="btn btn-primary d-flex align-items-center gap-2 px-3 py-2 shadow-sm">
+                <i class="bi bi-plus-lg"></i>
+                <span>Tambah Akun</span>
+            </a>
+        <?php endif; ?>
+    </div>
 </div>
 
 <!-- Search Bar Box -->

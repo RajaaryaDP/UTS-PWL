@@ -219,4 +219,19 @@ class AccountsModel
     {
         return $this->deleteAccount($id);
     }
+
+    /**
+     * Memperbarui kata sandi akun
+     */
+    public function updatePassword($id, $newPassword)
+    {
+        $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);
+        $stmt = $this->db->prepare(
+            "UPDATE accounts 
+             SET password = ?, updated_at = NOW() 
+             WHERE id = ? AND deleted_at IS NULL"
+        );
+        return $stmt->execute([$passwordHash, $id]);
+    }
 }
+

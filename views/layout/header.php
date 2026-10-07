@@ -49,24 +49,13 @@ $isAdmin = strcasecmp(trim($currentUser['account_type_name'] ?? ''), 'Admin') ==
                     </li>
                 <?php endif; ?>
             </ul>
-
-            <div class="p-3 text-muted small border-top border-secondary-subtle">
-                <div class="text-white-50 small mb-1">Database:</div>
-                <div class="fw-semibold text-light text-truncate" title="PBL_TI_2025_A_RAJA">
-                    <i class="bi bi-database me-1 text-primary"></i> PBL_TI_2025_A_RAJA
-                </div>
-            </div>
         </aside>
 
         <!-- Main Wrapper -->
         <div class="main">
             <!-- Topbar Header -->
             <header class="topbar">
-                <div class="d-flex align-items-center">
-                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2 fw-medium">
-                        <i class="bi bi-mortarboard-fill me-1"></i> UTS Pemrograman Web Lanjut
-                    </span>
-                </div>
+                <div></div>
 
                 <div class="d-flex align-items-center gap-3">
                     <?php if ($currentUser): ?>

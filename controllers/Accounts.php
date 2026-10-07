@@ -269,4 +269,76 @@ class Accounts
         header('Location: ' . BASE_URL . '/accounts');
         exit;
     }
+
+    /**
+     * Menampilkan form ganti password dan memproses pembaruan kata sandi
+     */
+    public function changePassword()
+    {
+        if (!isset($_SESSION['user'])) {
+            header('Location: ' . BASE_URL . '/auth');
+            exit;
+        }
+
+        $userId = $_SESSION['user']['id'];
+        $user = $this->model->getById($userId);
+
+        if (!$user) {
+            http_response_code(404);
+            echo '404 - Akun tidak ditemukan';
+            return;
+        }
+
+        $errors = [];
+        $success = $_SESSION['flash_success'] ?? null;
+        unset($_SESSION['flash_success']);
+
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            $currentPassword = $_POST['current_password'] ?? '';
+            $newPassword     = $_POST['new_password'] ?? '';
+            $confirmPassword = $_POST['confirm_password'] ?? '';
+
+            // Validasi Password Saat Ini
+            if (empty($currentPassword)) {
+                $errors['current_password'] = 'Password saat ini wajib diisi.';
+            } elseif (!password_verify($currentPassword, $user['password'])) {
+                $errors['current_password'] = 'Password saat ini tidak sesuai.';
+            }
+
+            // Validasi Password Baru
+            if (empty($newPassword)) {
+                $errors['new_password'] = 'Password baru wajib diisi.';
+            } elseif (strlen($newPassword) < 6) {
+                $errors['new_password'] = 'Password baru minimal 6 karakter.';
+            } elseif (!empty($currentPassword) && $currentPassword === $newPassword) {
+                $errors['new_password'] = 'Password baru tidak boleh sama dengan password saat ini.';
+            }
+
+            // Validasi Konfirmasi Password
+            if (empty($confirmPassword)) {
+                $errors['confirm_password'] = 'Konfirmasi password baru wajib diisi.';
+            } elseif ($newPassword !== $confirmPassword) {
+                $errors['confirm_password'] = 'Konfirmasi password tidak cocok dengan password baru.';
+            }
+
+            if (empty($errors)) {
+                $this->model->updatePassword($userId, $newPassword);
+                $_SESSION['flash_success'] = 'Password berhasil diubah!';
+                header('Location: ' . BASE_URL . '/accounts/change-password');
+                exit;
+            }
+        }
+
+        $this->load->view('views/accounts/change_password.php', [
+            'user'    => $user,
+            'errors'  => $errors,
+            'success' => $success,
+        ]);
+    }
+
+    public function updatePassword()
+    {
+        $this->changePassword();
+    }
 }
+

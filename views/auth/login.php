@@ -89,7 +89,7 @@
                 <input type="email" name="email" 
                        class="form-control <?= isset($errors['email']) ? 'is-invalid' : '' ?>" 
                        placeholder="nama@email.com"
-                       value="<?= htmlspecialchars($old['email'] ?? 'admin@pnj.ac.id') ?>" required autofocus>
+                       value="<?= htmlspecialchars($old['email'] ?? '') ?>" required autofocus>
                 <?php if (isset($errors['email'])): ?>
                     <div class="invalid-feedback small"><?= $errors['email'] ?></div>
                 <?php endif; ?>
@@ -110,12 +110,6 @@
                 <span>Login</span>
             </button>
         </form>
-
-        <div class="hint-box mt-4 text-secondary">
-            <div class="fw-semibold text-dark mb-1"><i class="bi bi-info-circle me-1 text-primary"></i> Akun Pengujian (Seed Data):</div>
-            <div>Email: <code class="text-primary">admin@pnj.ac.id</code></div>
-            <div>Password: <code class="text-primary">admin123</code></div>
-        </div>
     </div>
 
     <!-- Bootstrap Bundle JS -->

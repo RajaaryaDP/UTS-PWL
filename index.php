@@ -29,7 +29,7 @@ $segments = explode('/', $path);
 
 define('BASE_URL', $base === '' ? '' : '/' . $base);
 
-$noIdActions = ['create', 'store', 'login', 'logout'];
+$noIdActions = ['create', 'store', 'login', 'logout', 'change-password', 'update-password'];
 
 // Routing alias & default controller
 $rawPage = strtolower($segments[0] ?? '');
@@ -80,7 +80,7 @@ if (!isset($segments[1]) || $segments[1] === '') {
 $method = $_SERVER['REQUEST_METHOD'];
 
 // actions that must come from a form submission (POST), not a plain link/URL (GET)
-$postOnlyActions = ['store', 'update', 'delete'];
+$postOnlyActions = ['store', 'update', 'delete', 'update-password'];
 $expectsPost     = in_array($action, $postOnlyActions, true);
 
 $controllerName = str_replace('-', '', ucwords($page, '-'));
@@ -100,10 +100,11 @@ if (!class_exists($controllerName)) {
     exit;
 }
 
-// Exception for Auth::login which can handle both GET (render form) and POST (submit login)
-$isAuthLogin = ($controllerName === 'Auth' && $action === 'login');
+// Exception for Auth::login and change-password which can handle both GET and POST
+$isDualMethodAction = ($controllerName === 'Auth' && $action === 'login')
+    || ($controllerName === 'Accounts' && in_array($action, ['change-password', 'changePassword'], true));
 
-if (!$isAuthLogin) {
+if (!$isDualMethodAction) {
     if (($expectsPost && $method !== 'POST') || (!$expectsPost && $method !== 'GET')) {
         http_response_code(404);
         echo '404 - Action not found';
@@ -113,14 +114,20 @@ if (!$isAuthLogin) {
 
 $controller = new $controllerName();
 
-if (!method_exists($controller, $action)) {
-    http_response_code(404);
-    echo '404 - Action not found';
-    exit;
+$callAction = $action;
+if (!method_exists($controller, $callAction)) {
+    $methodName = lcfirst(str_replace('-', '', ucwords($action, '-')));
+    if (method_exists($controller, $methodName)) {
+        $callAction = $methodName;
+    } else {
+        http_response_code(404);
+        echo '404 - Action not found';
+        exit;
+    }
 }
 
 if ($id === null) {
-    $controller->$action();
+    $controller->$callAction();
 } else {
-    $controller->$action($id);
+    $controller->$callAction($id);
 }
