@@ -7,7 +7,8 @@ Proyek ini merupakan implementasi **Native PHP MVC Skeleton** untuk Ujian Tengah
 2. **Manajemen Akun (`accounts`):** Tambah, Edit, Hapus (Soft Delete), Tampil Daftar Akun, dan Pencarian multi-kolom (Nama, Email, NIM/NIP, Tipe Akun).
 3. **Manajemen Tipe Akun (`account_type`):** Tambah, Edit, Hapus (Soft Delete), dan Pencarian Tipe Akun (Relasi 1:1 dengan Akun).
 4. **Manajemen Jenis Aksi (`actions`):** Tambah, Edit, Hapus (Soft Delete), dan Pencarian Master Aksi / Hak Akses.
-5. **Keamanan & Standar Basis Data:**
+5. **Dashboard Berdasarkan Peran:** Mahasiswa dan dosen hanya dapat melihat akun lain dengan peran yang sama; fitur tambah, ubah, dan hapus akun serta menu tipe akun dan jenis aksi hanya tersedia untuk admin.
+6. **Keamanan & Standar Basis Data:**
    - Primary Key menggunakan **UUID v4 (`CHAR(36)`)** di seluruh tabel.
    - Kolom penjejakan wajib: `created_at`, `updated_at`, dan `deleted_at` (Soft Delete).
    - Format database: `PBL_TI_2025_A_RAJA` (dan fallback `tik_pbl`).

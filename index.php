@@ -48,6 +48,18 @@ if (!isset($_SESSION['user']) && $page !== 'auth') {
     header('Location: ' . BASE_URL . '/auth');
     exit;
 }
+
+// Non-admin users can only access their own role-specific account dashboard.
+if (
+    isset($_SESSION['user'])
+    && strcasecmp(trim($_SESSION['user']['account_type_name'] ?? ''), 'Admin') !== 0
+    && in_array($page, ['account-types', 'actions'], true)
+) {
+    http_response_code(403);
+    echo '403 - Halaman ini hanya dapat diakses oleh admin.';
+    exit;
+}
+
 // If already logged in, prevent accessing login page unless logging out
 if (isset($_SESSION['user']) && $page === 'auth' && ($segments[1] ?? '') !== 'logout') {
     header('Location: ' . BASE_URL . '/accounts');

@@ -80,19 +80,47 @@ class Accounts
         return $errors;
     }
 
+    private function requireAdmin()
+    {
+        if (strcasecmp(trim($_SESSION['user']['account_type_name'] ?? ''), 'Admin') === 0) {
+            return true;
+        }
+
+        http_response_code(403);
+        echo '403 - Akses hanya tersedia untuk admin.';
+        return false;
+    }
+
     public function index()
     {
-        $search   = $_GET['q'] ?? '';
-        $accounts = $this->model->getAll($search);
+        $search = $_GET['q'] ?? '';
+        $role = trim($_SESSION['user']['account_type_name'] ?? '');
+        $isAdmin = strcasecmp($role, 'Admin') === 0;
+
+        if ($isAdmin) {
+            $accounts = $this->model->getAll($search);
+        } elseif (strcasecmp($role, 'Dosen') === 0 || strcasecmp($role, 'Mahasiswa') === 0) {
+            $accounts = $this->model->getAccountsByType($role, $_SESSION['user']['id'], $search);
+        } else {
+            http_response_code(403);
+            echo '403 - Role akun tidak memiliki akses ke halaman ini.';
+            return;
+        }
 
         $this->load->view('views/accounts/index.php', [
-            'accounts' => $accounts,
-            'search'   => $search,
+            'accounts'      => $accounts,
+            'search'        => $search,
+            'dashboardRole' => $role,
+            'isAdmin'       => $isAdmin,
         ]);
     }
 
     public function create()
     {
+        if (!$this->requireAdmin()) {
+            return;
+        }
+
         $accountTypes = $this->accountTypeModel->getAll();
 
         $this->load->view('views/accounts/form.php', [
@@ -107,6 +135,10 @@ class Accounts
 
     public function store()
     {
+        if (!$this->requireAdmin()) {
+            return;
+        }
+
         $errors = $this->validate($_POST, false);
 
         if (!empty($errors)) {
@@ -136,6 +168,10 @@ class Accounts
 
     public function edit($id)
     {
+        if (!$this->requireAdmin()) {
+            return;
+        }
+
         $account = $this->model->getById($id);
 
         if ($account === null) {
@@ -156,6 +192,10 @@ class Accounts
 
     public function update($id)
     {
+        if (!$this->requireAdmin()) {
+            return;
+        }
+
         $existing = $this->model->getById($id);
         if ($existing === null) {
             http_response_code(404);
@@ -207,6 +247,10 @@ class Accounts
 
     public function delete($id)
     {
+        if (!$this->requireAdmin()) {
+            return;
+        }
+
         $existing = $this->model->getById($id);
         if ($existing === null) {
             http_response_code(404);

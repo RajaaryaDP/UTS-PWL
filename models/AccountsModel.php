@@ -48,6 +48,31 @@ class AccountsModel
         return $this->getAccounts($search);
     }
 
+    public function getAccountsByType($accountTypeName, $excludeAccountId, $search = null)
+    {
+        $sql = "SELECT accounts.*, account_type.name AS account_type_name
+                FROM accounts
+                INNER JOIN account_type ON accounts.account_type_id = account_type.id
+                WHERE accounts.deleted_at IS NULL
+                  AND account_type.deleted_at IS NULL
+                  AND account_type.name = ?
+                  AND accounts.id != ?";
+        $params = [$accountTypeName, $excludeAccountId];
+
+        if (!empty($search)) {
+            $keyword = '%' . trim($search) . '%';
+            $sql .= " AND (accounts.name LIKE ?
+                           OR accounts.email LIKE ?
+                           OR accounts.identification_number LIKE ?)";
+            $params = array_merge($params, [$keyword, $keyword, $keyword]);
+        }
+
+        $sql .= " ORDER BY accounts.created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
     public function getAccountById($id)
     {
         $stmt = $this->db->prepare(

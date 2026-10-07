@@ -1,6 +1,7 @@
 <?php
 global $page;
 $currentUser = $_SESSION['user'] ?? null;
+$isAdmin = strcasecmp(trim($currentUser['account_type_name'] ?? ''), 'Admin') === 0;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -33,18 +34,20 @@ $currentUser = $_SESSION['user'] ?? null;
                         <span>Akun</span>
                     </a>
                 </li>
-                <li>
-                    <a href="<?= BASE_URL ?>/account-types" class="nav-link <?= ($page === 'account-types') ? 'active' : '' ?>">
-                        <i class="bi bi-person-badge-fill"></i>
-                        <span>Tipe Akun</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="<?= BASE_URL ?>/actions" class="nav-link <?= ($page === 'actions') ? 'active' : '' ?>">
-                        <i class="bi bi-key-fill"></i>
-                        <span>Jenis Aksi</span>
-                    </a>
-                </li>
+                <?php if ($isAdmin): ?>
+                    <li>
+                        <a href="<?= BASE_URL ?>/account-types" class="nav-link <?= ($page === 'account-types') ? 'active' : '' ?>">
+                            <i class="bi bi-person-badge-fill"></i>
+                            <span>Tipe Akun</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="<?= BASE_URL ?>/actions" class="nav-link <?= ($page === 'actions') ? 'active' : '' ?>">
+                            <i class="bi bi-key-fill"></i>
+                            <span>Jenis Aksi</span>
+                        </a>
+                    </li>
+                <?php endif; ?>
             </ul>
 
             <div class="p-3 text-muted small border-top border-secondary-subtle">
