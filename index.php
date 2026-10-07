@@ -24,7 +24,7 @@ require_once __DIR__ . '/core/Loader.php';
 // parser URL, this line will divide the uri into several parts
 $uri      = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $base     = trim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');
-$path     = trim(substr($uri, strlen($base)), '/');
+$path     = trim(substr($uri, strlen($base) + ($base === '' ? 0 : 1)), '/');
 $segments = explode('/', $path);
 
 define('BASE_URL', $base === '' ? '' : '/' . $base);
