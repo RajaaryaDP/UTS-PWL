@@ -26,7 +26,7 @@ class ActionsModel
                 "SELECT * FROM actions 
                  WHERE deleted_at IS NULL 
                    AND (name LIKE ? OR description LIKE ?) 
-                 ORDER BY created_at DESC"
+                 ORDER BY created_at DESC, name ASC"
             );
             $stmt->execute([$keyword, $keyword]);
             return $stmt->fetchAll();
@@ -35,7 +35,7 @@ class ActionsModel
         $stmt = $this->db->query(
             "SELECT * FROM actions 
              WHERE deleted_at IS NULL 
-             ORDER BY created_at DESC"
+             ORDER BY created_at DESC, name ASC"
         );
         return $stmt->fetchAll();
     }
@@ -61,9 +61,33 @@ class ActionsModel
         return $this->getActionById($id);
     }
 
+    /**
+     * BARU: cek apakah nama aksi sudah dipakai (data aktif).
+     * $excludeId dipakai saat ubah agar baris itu sendiri tidak dianggap duplikat.
+     */
+    public function existsByName($name, $excludeId = null)
+    {
+        $sql    = "SELECT COUNT(*) FROM actions 
+                   WHERE name = ? AND deleted_at IS NULL";
+        $params = [$name];
+
+        if ($excludeId !== null) {
+            $sql     .= " AND id <> ?";
+            $params[] = $excludeId;
+        }
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchColumn() > 0;
+    }
+
     public function createAction($data)
     {
         $id = Uuid::uuid4()->toString();
+
+        // BARU: deskripsi kosong disimpan sebagai NULL, bukan string kosong
+        $description = trim($data['description'] ?? '');
+        $description = $description === '' ? null : $description;
 
         $stmt = $this->db->prepare(
             "INSERT INTO actions (id, name, description, created_at, updated_at) 
@@ -72,7 +96,7 @@ class ActionsModel
         $stmt->execute([
             $id,
             $data['name'],
-            $data['description'] ?? null,
+            $description,
         ]);
 
         return $id;
@@ -85,6 +109,9 @@ class ActionsModel
 
     public function updateAction($id, $data)
     {
+        $description = trim($data['description'] ?? '');
+        $description = $description === '' ? null : $description;
+
         $stmt = $this->db->prepare(
             "UPDATE actions 
              SET name = ?, description = ?, updated_at = NOW() 
@@ -92,7 +119,7 @@ class ActionsModel
         );
         return $stmt->execute([
             $data['name'],
-            $data['description'] ?? null,
+            $description,
             $id
         ]);
     }
@@ -118,5 +145,18 @@ class ActionsModel
     public function delete($id)
     {
         return $this->deleteAction($id);
+    }
+
+    /**
+     * BARU: pulihkan jenis aksi yang sudah di-soft delete
+     */
+    public function restore($id)
+    {
+        $stmt = $this->db->prepare(
+            "UPDATE actions 
+             SET deleted_at = NULL, updated_at = NOW() 
+             WHERE id = ? AND deleted_at IS NOT NULL"
+        );
+        return $stmt->execute([$id]);
     }
 }

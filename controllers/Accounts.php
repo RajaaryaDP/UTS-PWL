@@ -80,9 +80,42 @@ class Accounts
         return $errors;
     }
 
+    // ---------------------------------------------------------------
+    // Helper hak akses
+    // ---------------------------------------------------------------
+
+    private function currentRole()
+    {
+        return trim($_SESSION['user']['account_type_name'] ?? '');
+    }
+
+    private function isAdmin()
+    {
+        return strcasecmp($this->currentRole(), 'Admin') === 0;
+    }
+
+    private function isStaff()
+    {
+        return strcasecmp($this->currentRole(), 'Staff') === 0;
+    }
+
+    /**
+     * BARU: Admin boleh mengedit semua akun.
+     * Staff HANYA boleh mengedit akun yang bertipe Staff.
+     */
+    private function canEdit($account)
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        return $this->isStaff()
+            && strcasecmp(trim($account['account_type_name'] ?? ''), 'Staff') === 0;
+    }
+
     private function requireAdmin()
     {
-        if (strcasecmp(trim($_SESSION['user']['account_type_name'] ?? ''), 'Admin') === 0) {
+        if ($this->isAdmin()) {
             return true;
         }
 
@@ -91,15 +124,25 @@ class Accounts
         return false;
     }
 
+    private function denyEdit()
+    {
+        http_response_code(403);
+        echo '403 - Anda tidak memiliki izin untuk mengubah akun ini.';
+    }
+
+    // ---------------------------------------------------------------
+    // Aksi
+    // ---------------------------------------------------------------
+
     public function index()
     {
-        $search = $_GET['q'] ?? '';
-        $role = trim($_SESSION['user']['account_type_name'] ?? '');
-        $isAdmin = strcasecmp($role, 'Admin') === 0;
+        $search  = $_GET['q'] ?? '';
+        $role    = $this->currentRole();
+        $isAdmin = $this->isAdmin();
 
         if ($isAdmin) {
             $accounts = $this->model->getAll($search);
-        } elseif (strcasecmp($role, 'Dosen') === 0 || strcasecmp($role, 'Mahasiswa') === 0) {
+        } elseif (strcasecmp($role, 'Dosen') === 0 || strcasecmp($role, 'Staff') === 0) {
             $accounts = $this->model->getAccountsByType($role, $_SESSION['user']['id'], $search);
         } else {
             http_response_code(403);
@@ -112,6 +155,7 @@ class Accounts
             'search'        => $search,
             'dashboardRole' => $role,
             'isAdmin'       => $isAdmin,
+            'canEditRole'   => $isAdmin || $this->isStaff(), // BARU: tampilkan tombol edit
         ]);
     }
 
@@ -125,6 +169,7 @@ class Accounts
 
         $this->load->view('views/accounts/form.php', [
             'isEdit'       => false,
+            'isAdmin'      => true,
             'accountTypes' => $accountTypes,
             'values'       => [
                 'status'              => 'Aktif',
@@ -145,6 +190,7 @@ class Accounts
             $accountTypes = $this->accountTypeModel->getAll();
             $this->load->view('views/accounts/form.php', [
                 'isEdit'       => false,
+                'isAdmin'      => true,
                 'accountTypes' => $accountTypes,
                 'values'       => $_POST,
                 'errors'       => $errors,
@@ -168,10 +214,6 @@ class Accounts
 
     public function edit($id)
     {
-        if (!$this->requireAdmin()) {
-            return;
-        }
-
         $account = $this->model->getById($id);
 
         if ($account === null) {
@@ -180,10 +222,17 @@ class Accounts
             return;
         }
 
+        // BARU: Admin atau Staff (khusus akun Staff)
+        if (!$this->canEdit($account)) {
+            $this->denyEdit();
+            return;
+        }
+
         $accountTypes = $this->accountTypeModel->getAll();
 
         $this->load->view('views/accounts/form.php', [
             'isEdit'       => true,
+            'isAdmin'      => $this->isAdmin(),
             'id'           => $id,
             'accountTypes' => $accountTypes,
             'values'       => $account,
@@ -192,15 +241,27 @@ class Accounts
 
     public function update($id)
     {
-        if (!$this->requireAdmin()) {
-            return;
-        }
-
         $existing = $this->model->getById($id);
         if ($existing === null) {
             http_response_code(404);
             echo '404 - Akun tidak ditemukan';
             return;
+        }
+
+        if (!$this->canEdit($existing)) {
+            $this->denyEdit();
+            return;
+        }
+
+        $isAdmin = $this->isAdmin();
+
+        // BARU: untuk non-admin, kunci field sensitif di SERVER.
+        // Nilai kiriman form diabaikan agar Staff tidak bisa mengubah
+        // tipe akun (naik jadi Admin), status, atau password akun lain.
+        if (!$isAdmin) {
+            $_POST['account_type_id'] = $existing['account_type_id'];
+            $_POST['status']          = $existing['status'];
+            unset($_POST['password']);
         }
 
         $errors = $this->validate($_POST, true, $id);
@@ -209,6 +270,7 @@ class Accounts
             $accountTypes = $this->accountTypeModel->getAll();
             $this->load->view('views/accounts/form.php', [
                 'isEdit'       => true,
+                'isAdmin'      => $isAdmin,
                 'id'           => $id,
                 'accountTypes' => $accountTypes,
                 'values'       => array_merge($existing, $_POST),
@@ -226,7 +288,7 @@ class Accounts
             'identification_number' => trim($_POST['identification_number']),
         ];
 
-        if (!empty($_POST['password'])) {
+        if ($isAdmin && !empty($_POST['password'])) {
             $updateData['password'] = $_POST['password'];
         }
 
@@ -341,4 +403,3 @@ class Accounts
         $this->changePassword();
     }
 }
-

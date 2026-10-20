@@ -1,3 +1,8 @@
+<?php
+// Pesan captcha salah (di-set oleh index.php saat validasi gagal), tampil sekali saja
+$captchaError = $_SESSION['captcha_error'] ?? '';
+unset($_SESSION['captcha_error']);
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -54,12 +59,23 @@
             background-color: #4338ca;
             border-color: #4338ca;
         }
-        .hint-box {
-            background-color: #f8fafc;
-            border: 1px dashed #cbd5e1;
+        .captcha-img {
+            width: 173px;
+            height: 50px;
+            border: 1px solid #e5e9f2;
             border-radius: 8px;
-            padding: 0.85rem;
-            font-size: 0.82rem;
+            background: #f5f5f5;
+        }
+        .btn-refresh-captcha {
+            border: 1px solid #e5e9f2;
+            border-radius: 8px;
+            color: #4f46e5;
+            background: #fff;
+            height: 46px;
+            width: 46px;
+        }
+        .btn-refresh-captcha:hover {
+            background: #eef2ff;
         }
     </style>
 </head>
@@ -83,11 +99,18 @@
             </div>
         <?php endif; ?>
 
+        <?php if ($captchaError !== ''): ?>
+            <div class="alert alert-danger py-2 small d-flex align-items-center" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <div><?= htmlspecialchars($captchaError) ?></div>
+            </div>
+        <?php endif; ?>
+
         <form action="<?= BASE_URL ?>/auth/login" method="POST">
             <div class="mb-3">
                 <label class="form-label small fw-semibold text-secondary">Email</label>
-                <input type="email" name="email" 
-                       class="form-control <?= isset($errors['email']) ? 'is-invalid' : '' ?>" 
+                <input type="email" name="email"
+                       class="form-control <?= isset($errors['email']) ? 'is-invalid' : '' ?>"
                        placeholder="nama@email.com"
                        value="<?= htmlspecialchars($old['email'] ?? '') ?>" required autofocus>
                 <?php if (isset($errors['email'])): ?>
@@ -95,33 +118,29 @@
                 <?php endif; ?>
             </div>
 
-            <div class="mb-4">
+            <div class="mb-3">
                 <label class="form-label small fw-semibold text-secondary">Password</label>
-                <input type="password" name="password" 
-                       class="form-control <?= isset($errors['password']) ? 'is-invalid' : '' ?>" 
+                <input type="password" name="password"
+                       class="form-control <?= isset($errors['password']) ? 'is-invalid' : '' ?>"
                        placeholder="••••••••" required>
                 <?php if (isset($errors['password'])): ?>
                     <div class="invalid-feedback small"><?= $errors['password'] ?></div>
                 <?php endif; ?>
             </div>
 
-            <div class="mb-4">
-                <label class="form-label small fw-semibold text-secondary">Kode CAPTCHA</label>
-                <div class="mb-2">
-                    <img src="<?= BASE_URL ?>/auth/captcha?id=<?= htmlspecialchars($captchaId) ?>"
-                         alt="Kode CAPTCHA untuk verifikasi login"
-                         width="160" height="52"
-                         class="border rounded">
+            <!-- Captcha -->
+            <div class="mb-3">
+                <label class="form-label small fw-semibold text-secondary">Kode Captcha</label>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <img id="captcha-img" class="captcha-img"
+                         src="<?= BASE_URL ?>/captcha?t=<?= time() ?>" alt="Captcha">
+                    <button type="button" id="btn-refresh-captcha" class="btn btn-refresh-captcha"
+                            title="Muat ulang captcha">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
                 </div>
-                <input type="hidden" name="captcha_id" value="<?= htmlspecialchars($captchaId) ?>">
-                <input type="text" name="captcha"
-                       class="form-control <?= isset($errors['captcha']) ? 'is-invalid' : '' ?>"
-                       placeholder="Masukkan kode pada gambar"
-                       autocomplete="off" autocapitalize="characters"
-                       aria-label="Kode CAPTCHA" required>
-                <?php if (isset($errors['captcha'])): ?>
-                    <div class="invalid-feedback small"><?= htmlspecialchars($errors['captcha']) ?></div>
-                <?php endif; ?>
+                <input type="text" name="kodecaptcha" class="form-control"
+                       placeholder="KETIK KODE DI ATAS" autocomplete="off" required>
             </div>
 
             <button type="submit" class="btn btn-primary btn-login w-100 text-white shadow-sm d-flex align-items-center justify-content-center gap-2">
@@ -133,5 +152,10 @@
 
     <!-- Bootstrap Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('btn-refresh-captcha').addEventListener('click', function () {
+            document.getElementById('captcha-img').src = '<?= BASE_URL ?>/captcha?t=' + Date.now();
+        });
+    </script>
 </body>
 </html>

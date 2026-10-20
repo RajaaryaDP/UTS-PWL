@@ -3,7 +3,7 @@
 Proyek ini merupakan implementasi **Native PHP MVC Skeleton** untuk Ujian Tengah Semester (UTS) mata kuliah **Pemrograman Web Lanjut**, Jurusan Teknik Informatika dan Komputer - Politeknik Negeri Jakarta.
 
 ## 🚀 Fitur Utama
-1. **Autentikasi Pengguna:** Login dengan CAPTCHA gambar (PHP GD), Bcrypt & Session, serta Logout.
+1. **Autentikasi Pengguna:** Login (dengan enkripsi Bcrypt & Session) serta Logout.
 2. **Manajemen Akun (`accounts`):** Tambah, Edit, Hapus (Soft Delete), Tampil Daftar Akun, dan Pencarian multi-kolom (Nama, Email, NIM/NIP, Tipe Akun).
 3. **Manajemen Tipe Akun (`account_type`):** Tambah, Edit, Hapus (Soft Delete), dan Pencarian Tipe Akun (Relasi 1:1 dengan Akun).
 4. **Manajemen Jenis Aksi (`actions`):** Tambah, Edit, Hapus (Soft Delete), dan Pencarian Master Aksi / Hak Akses.
@@ -17,7 +17,6 @@ Proyek ini merupakan implementasi **Native PHP MVC Skeleton** untuk Ujian Tengah
 
 ## 🛠️ Persyaratan Lingkungan
 - PHP 8.1+
-- Ekstensi PHP GD aktif (untuk gambar CAPTCHA login)
 - Composer
 - MySQL / MariaDB (Laragon / XAMPP)
 
@@ -30,17 +29,14 @@ Proyek ini merupakan implementasi **Native PHP MVC Skeleton** untuk Ujian Tengah
    composer install
    ```
 
-2. **Aktifkan CAPTCHA:**
-   Pastikan ekstensi GD aktif pada `php.ini` (di XAMPP biasanya `C:\xampp\php\php.ini`) dengan mengaktifkan `extension=gd`, lalu restart Apache.
-
-3. **Setup Basis Data:**
+2. **Setup Basis Data:**
    Eksekusi file SQL yang telah disiapkan di `docs/database_uts.sql` ke MySQL Anda:
    ```bash
    mysql -u root -p PBL_TI_2025_A_RAJA < docs/database_uts.sql
    ```
    *(File SQL sudah mencakup skema tabel `account_type`, `actions`, `accounts`, serta **seed data** yang 100% identik dengan contoh mock-up pada lembar soal UTS).*
 
-4. **Konfigurasi Database:**
+3. **Konfigurasi Database:**
    Pastikan konfigurasi di `config/database.php` sesuai dengan kredensial MySQL lokal Anda.
 
 ---

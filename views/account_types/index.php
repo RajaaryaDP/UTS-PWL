@@ -1,4 +1,6 @@
-<?php 
+<?php if (!empty($canEditRole)): ?>
+         <th class="text-end pe-4">Aksi</th>
+<?php endif; ?>
 $title = 'Manajemen Tipe Akun';
 require_once __DIR__ . '/../layout/header.php'; 
 ?>
@@ -59,7 +61,7 @@ require_once __DIR__ . '/../layout/header.php';
     <div class="card border-0 shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
-                <thead class="table-light text-secondary small">
+                <thead class="table-striped table-dark text-secondary small">
                     <tr>
                         <th class="ps-4">Nama</th>
                         <th>Deskripsi</th>

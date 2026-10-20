@@ -13,7 +13,7 @@ require_once __DIR__ . '/../layout/header.php';
         </div>
 
         <div class="card border-0 shadow-sm">
-            <div class="card-header bg-white py-3 border-bottom">
+            <div class="card-header bg-blue py-3 border-bottom">
                 <h5 class="fw-bold mb-0 text-dark"><?= $isEdit ? 'Ubah Tipe Akun' : 'Tambah Tipe Akun' ?></h5>
             </div>
 

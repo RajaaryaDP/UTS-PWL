@@ -1,6 +1,7 @@
 <?php
 
 session_start();
+ob_start(); // tahan output tersasar (spasi/BOM) agar gambar captcha tidak rusak
 
 // catch any real error (not our own 404s) and show it as a meme instead of
 // a raw PHP fatal-error dump
@@ -29,7 +30,7 @@ $segments = explode('/', $path);
 
 define('BASE_URL', $base === '' ? '' : '/' . $base);
 
-$noIdActions = ['create', 'store', 'login', 'captcha', 'logout', 'change-password', 'update-password'];
+$noIdActions = ['create', 'store', 'login', 'logout', 'change-password', 'update-password'];
 
 // Routing alias & default controller
 $rawPage = strtolower($segments[0] ?? '');
@@ -44,19 +45,25 @@ if ($rawPage === '' || $rawPage === 'home') {
 }
 
 // Global Auth Guard: Redirect unauthenticated user to login
-if (!isset($_SESSION['user']) && $page !== 'auth') {
+// 'captcha' harus bisa diakses sebelum login (gambar dipakai di form login)
+if (!isset($_SESSION['user']) && !in_array($page, ['auth', 'captcha'], true)) {
     header('Location: ' . BASE_URL . '/auth');
     exit;
 }
 
-// Non-admin users can only access their own role-specific account dashboard.
+// BARU: daftar peran yang boleh membuka halaman khusus (tambah peran di sini)
+$allowedRoles = ['admin', 'staff'];
+$adminPages   = ['account-types', 'actions'];
+$currentRole  = strtolower(trim($_SESSION['user']['account_type_name'] ?? ''));
+
+// Hanya peran yang diizinkan yang boleh membuka halaman khusus.
 if (
     isset($_SESSION['user'])
-    && strcasecmp(trim($_SESSION['user']['account_type_name'] ?? ''), 'Admin') !== 0
-    && in_array($page, ['account-types', 'actions'], true)
+    && !in_array($currentRole, $allowedRoles, true)
+    && in_array($page, $adminPages, true)
 ) {
     http_response_code(403);
-    echo '403 - Halaman ini hanya dapat diakses oleh admin.';
+    echo '403 - Halaman ini hanya dapat diakses oleh admin atau staff.';
     exit;
 }
 
@@ -108,6 +115,22 @@ if (!$isDualMethodAction) {
     if (($expectsPost && $method !== 'POST') || (!$expectsPost && $method !== 'GET')) {
         http_response_code(404);
         echo '404 - Action not found';
+        exit;
+    }
+}
+
+// CAPTCHA: wajib benar untuk login dan pembuatan akun (hanya saat POST).
+// Jika salah, kembali ke form dengan pesan error (ditampilkan oleh captcha_field.php).
+require_once __DIR__ . '/core/CaptchaHelper.php';
+$captchaForms = [
+    'Auth'     => ['login' => '/auth'],
+    'Accounts' => ['store' => '/accounts/create'],
+];
+if ($method === 'POST' && isset($captchaForms[$controllerName][$action])) {
+    error_log('captcha input=' . ($_POST['kodecaptcha'] ?? '') . ' | session=' . ($_SESSION['code'] ?? 'KOSONG'));
+    if (!CaptchaHelper::verify($_POST['kodecaptcha'] ?? '')) {
+        $_SESSION['captcha_error'] = 'Captcha salah atau kedaluwarsa. Silakan coba lagi.';
+        header('Location: ' . BASE_URL . $captchaForms[$controllerName][$action]);
         exit;
     }
 }

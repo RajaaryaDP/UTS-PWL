@@ -22,6 +22,7 @@ class AccountTypes
         } elseif (strlen($data['name']) > 128) {
             $errors['name'] = 'Nama tipe akun maksimal 128 karakter.';
         }
+        
 
         return $errors;
     }

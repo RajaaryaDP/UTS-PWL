@@ -4,7 +4,7 @@ require_once __DIR__ . '/../layout/header.php';
 ?>
 
 <div class="row justify-content-center">
-    <div class="col-lg-7 col-md-9">
+    <div class="col-lg-5 col-md-10">
         <!-- Breadcrumb / Back button -->
         <div class="mb-3">
             <a href="<?= BASE_URL ?>/actions" class="text-decoration-none text-muted small d-inline-flex align-items-center gap-1">

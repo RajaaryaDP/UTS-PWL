@@ -48,16 +48,20 @@ class AccountsModel
         return $this->getAccounts($search);
     }
 
-    public function getAccountsByType($accountTypeName, $excludeAccountId, $search = null)
+    /**
+     * Mengambil akun dengan tipe yang sama (dipakai Dosen dan Staff).
+     * PERUBAHAN: akun yang sedang login TIDAK lagi dikecualikan,
+     * tetapi ditampilkan paling atas.
+     */
+    public function getAccountsByType($accountTypeName, $currentAccountId, $search = null)
     {
         $sql = "SELECT accounts.*, account_type.name AS account_type_name
                 FROM accounts
                 INNER JOIN account_type ON accounts.account_type_id = account_type.id
                 WHERE accounts.deleted_at IS NULL
                   AND account_type.deleted_at IS NULL
-                  AND account_type.name = ?
-                  AND accounts.id != ?";
-        $params = [$accountTypeName, $excludeAccountId];
+                  AND account_type.name = ?";
+        $params = [$accountTypeName];
 
         if (!empty($search)) {
             $keyword = '%' . trim($search) . '%';
@@ -67,7 +71,10 @@ class AccountsModel
             $params = array_merge($params, [$keyword, $keyword, $keyword]);
         }
 
-        $sql .= " ORDER BY accounts.created_at DESC";
+        // Akun yang sedang login di paling atas, sisanya terbaru dulu
+        $sql .= " ORDER BY (accounts.id = ?) DESC, accounts.created_at DESC";
+        $params[] = $currentAccountId;
+
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
@@ -108,20 +115,23 @@ class AccountsModel
     }
 
     /**
-     * Cek apakah email sudah terdaftar sebelumnya
+     * Cek apakah email sudah terdaftar sebelumnya.
+     * PERUBAHAN: tidak memfilter deleted_at, karena constraint UNIQUE di
+     * database juga menghitung akun yang sudah di-soft delete. Dengan begitu
+     * validasi menolak lebih awal dan tidak berujung halaman crash (error 1062).
      */
     public function isEmailExists($email, $excludeId = null)
     {
         if ($excludeId) {
             $stmt = $this->db->prepare(
                 "SELECT id FROM accounts 
-                 WHERE email = ? AND id != ? AND deleted_at IS NULL"
+                 WHERE email = ? AND id != ?"
             );
             $stmt->execute([trim($email), $excludeId]);
         } else {
             $stmt = $this->db->prepare(
                 "SELECT id FROM accounts 
-                 WHERE email = ? AND deleted_at IS NULL"
+                 WHERE email = ?"
             );
             $stmt->execute([trim($email)]);
         }
@@ -234,4 +244,3 @@ class AccountsModel
         return $stmt->execute([$passwordHash, $id]);
     }
 }
-
