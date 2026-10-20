@@ -105,6 +105,25 @@
                 <?php endif; ?>
             </div>
 
+            <div class="mb-4">
+                <label class="form-label small fw-semibold text-secondary">Kode CAPTCHA</label>
+                <div class="mb-2">
+                    <img src="<?= BASE_URL ?>/auth/captcha?id=<?= htmlspecialchars($captchaId) ?>"
+                         alt="Kode CAPTCHA untuk verifikasi login"
+                         width="160" height="52"
+                         class="border rounded">
+                </div>
+                <input type="hidden" name="captcha_id" value="<?= htmlspecialchars($captchaId) ?>">
+                <input type="text" name="captcha"
+                       class="form-control <?= isset($errors['captcha']) ? 'is-invalid' : '' ?>"
+                       placeholder="Masukkan kode pada gambar"
+                       autocomplete="off" autocapitalize="characters"
+                       aria-label="Kode CAPTCHA" required>
+                <?php if (isset($errors['captcha'])): ?>
+                    <div class="invalid-feedback small"><?= htmlspecialchars($errors['captcha']) ?></div>
+                <?php endif; ?>
+            </div>
+
             <button type="submit" class="btn btn-primary btn-login w-100 text-white shadow-sm d-flex align-items-center justify-content-center gap-2">
                 <i class="bi bi-box-arrow-in-right"></i>
                 <span>Login</span>

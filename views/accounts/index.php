@@ -39,7 +39,7 @@ require_once __DIR__ . '/../layout/header.php';
                         <i class="bi bi-search"></i>
                     </span>
                     <input type="text" name="q" class="form-control border-start-0 bg-light" 
-                           placeholder="<?= !empty($isAdmin) ? 'Cari nama, email, NIM/NIP, atau tipe akun...' : 'Cari nama, email, atau nomor identitas...' ?>"
+                           placeholder="<?= !empty($isAdmin) ? 'Cari nama, NIM/NIP ...' : 'Cari nama, nomor identitas...' ?>"
                            value="<?= htmlspecialchars($search ?? '') ?>">
                 </div>
             </div>
